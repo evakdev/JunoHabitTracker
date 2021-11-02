@@ -4,4 +4,6 @@
 /venv/
 *.code-workspace
 config.py
+*.sqlite3
+*.db
 todo
