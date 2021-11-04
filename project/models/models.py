@@ -9,8 +9,7 @@ from base import Session
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(sqa.Integer, primary_key=True)
-    telegram_id = Column(sqa.Integer, unique=True)
+    tid = Column(sqa.Integer, primary_key=True) #telegram id
     date_joined = Column(sqa.Date)
 
     def __init__(self, id):
@@ -21,20 +20,29 @@ class User(Base):
         info = f"user {self.id}, joined at {self.date_joined}"
         return info
 
+    @property
+    def habits(self):
+        """Returns user's habits' names. 
+        ATTENTION: this does not return objects.
+        """
+
+        with Session() as s:
+            habits = s.query(Habit).filter_by(user=self.id).order_by(Habit.name)
+            return habits.query(Habit.name)
 
 class Habit(Base):
     __tablename__ = "habits"
     id = Column(sqa.Integer, primary_key=True)
     name = Column(sqa.String)
     user = Column(sqa.Integer, ForeignKey("users.id"))
-    method_id = Column(sqa.Integer, nullable=True)
+    method = Column(sqa.Integer, nullable=True)
 
     def __init__(self, name, user):
         self.name = name
         self.user = user
 
     def str(self):
-        info = f"habit {self.name}, belonging to {self.user}, with method {self.method_id if self.method_id else 'None' }"
+        info = f"habit {self.name}, belonging to {self.user}, with method {self.method if self.method else 'None' }"
         return info
 
 
