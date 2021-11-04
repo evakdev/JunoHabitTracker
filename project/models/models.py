@@ -2,12 +2,14 @@ from base import Base
 from sqlalchemy import Column
 import sqlalchemy as sqa
 from sqlalchemy.sql.schema import ForeignKey
+from sqlalchemy.orm import load_only
 from datetime import date
+from base import Session
 
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(sqa.Integer,primary_key=True)
+    id = Column(sqa.Integer, primary_key=True)
     telegram_id = Column(sqa.Integer, unique=True)
     date_joined = Column(sqa.Date)
 
@@ -56,6 +58,17 @@ class Record(Base):
 class MethodBase:
     def __init__(self, name):
         self.name = name
+        self.streak = None
 
-    def calc_streak(self):
+    def calc_streak(self, user, habit):
         pass
+
+    def get_records(self, user, habit):
+        with Session() as s:
+            records = (
+                s.query(Record)
+                .filter_by(user=user.id, habit=habit.id)
+                .order_by(Record.date.desc)
+                .options(load_only("date"))
+            )
+            return records
