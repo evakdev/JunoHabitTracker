@@ -1,7 +1,5 @@
 import base
 import main
-import habitcreator
-
 
 
 def recreate_database():
