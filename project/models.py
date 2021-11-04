@@ -7,7 +7,8 @@ from datetime import date
 
 class User(Base):
     __tablename__ = "users"
-    id = Column(sqa.Integer, primary_key=True)
+    id = Column(sqa.Integer,primary_key=True)
+    telegram_id = Column(sqa.Integer, unique=True)
     date_joined = Column(sqa.Date)
 
     def __init__(self, id):
