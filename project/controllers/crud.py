@@ -1,6 +1,5 @@
 from base import Session
-from models import User
-from models import Habit, Record
+from models.models import User, Habit, Record
 
 def create_habit(name,user,**kwargs):
     with Session() as s:
@@ -14,11 +13,11 @@ def create_habit(name,user,**kwargs):
         s.commit()
         return habit
 
-def create_user(telegram_id):
+def create_user(id, timezone):
     with Session() as s:
-        user = s.query(User).filter_by(telegram_id=telegram_id).one_or_none()
+        user = s.query(User).filter_by(id=id).one_or_none()
         if not user:
-            user = User(telegram_id=telegram_id)
+            user = User(id=id, timezone=timezone)
             s.add(user)
             s.commit()
         return user
@@ -32,3 +31,14 @@ def create_record(user,habit,date):
             s.commit()
         return record
 
+def get_user(id):
+    """gets user from db by their telegram id."""
+    with Session() as s:
+        user = s.query(User).filter_by(id=id).one_or_none()
+        return user
+
+def get_habit(name, user_id):
+    """gets habit from db by users id and habits name"""
+    with Session() as s:
+        habit = s.query(Habit).filter_by(name=name,user=user_id).one_or_none()
+        return habit

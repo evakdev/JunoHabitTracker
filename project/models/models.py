@@ -9,11 +9,13 @@ from base import Session
 
 class User(Base):
     __tablename__ = "users"
-    tid = Column(sqa.Integer, primary_key=True) #telegram id
+    id = Column(sqa.Integer, primary_key=True)  # telegram id
+    timezone = Column(sqa.Float)
     date_joined = Column(sqa.Date)
 
-    def __init__(self, id):
+    def __init__(self, id, timezone):
         self.id = id
+        self.timezone = timezone
         self.date_joined = date.today()
 
     def str(self):
@@ -22,13 +24,19 @@ class User(Base):
 
     @property
     def habits(self):
-        """Returns user's habits' names. 
+        """Returns a list of user's habits' names.
         ATTENTION: this does not return objects.
         """
-
         with Session() as s:
-            habits = s.query(Habit).filter_by(user=self.id).order_by(Habit.name)
-            return habits.query(Habit.name)
+            habits = (
+                s.query(Habit)
+                .filter_by(user=self.id)
+                .order_by(Habit.name)
+                .with_entities(Habit.name)
+            )
+            names = [habit.name for habit in habits]
+            return names
+
 
 class Habit(Base):
     __tablename__ = "habits"
