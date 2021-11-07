@@ -24,8 +24,8 @@ def habit_maker(update, context):
         return METHODMAKER
     else:
         update.message.reply_text(
-            "Looks like you already have that habit!",
-            "go to /managehabits to edit it if you want, or enter a new name.",
+            "Looks like you already have that habit!"
+            "go to /managehabits to edit it if you want, or enter a new name."
         )
         return HABITMAKER
 
@@ -36,9 +36,10 @@ def method_maker(update, context):
     reply_markup = ReplyKeyboardMarkup(
         [["👍", "👎"]],
         one_time_keyboard=True,
+        resize_keyboard=True
     )
     update.message.reply_text(
-        "All right, assigned this method for you.",
+        "All right, assigned this method for you."
         "click on 👍 to finish up!",
         reply_markup=reply_markup,
     )
@@ -47,9 +48,9 @@ def method_maker(update, context):
 
 def done(update, context):
     update.message.reply_text(
-        "All done!",
-        "Anytime you want, you can go to /managehabit to edit your habits,",
-        "or go to /newhabit to create new ones!",
+        "All done!"
+        "Anytime you want, you can go to /managehabit to edit your habits,"
+        "or go to /newhabit to create new ones!"
     )
     return ConversationHandler.END
 
