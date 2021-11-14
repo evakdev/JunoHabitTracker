@@ -2,9 +2,9 @@ from base import Base
 from sqlalchemy import Column
 import sqlalchemy as sqa
 from sqlalchemy.sql.schema import ForeignKey
-from sqlalchemy.orm import load_only
 from datetime import date
 from base import Session
+from sqlalchemy_utils.types.choice import ChoiceType
 
 
 class User(Base):
@@ -43,15 +43,25 @@ class Habit(Base):
     id = Column(sqa.Integer, primary_key=True)
     name = Column(sqa.String)
     user = Column(sqa.Integer, ForeignKey("users.id"))
-    method = Column(sqa.Integer, nullable=True)
+    method = Column(sqa.Integer, ForeignKey("methods.id"), nullable=True)
+    date_created = Column(sqa.Date)
 
     def __init__(self, name, user):
         self.name = name
         self.user = user
+        self.date_created = date.today()
 
     def str(self):
         info = f"habit {self.name}, belonging to {self.user}, with method {self.method if self.method else 'None' }"
         return info
+
+    def records(self):
+        """Returns a query of habit's records."""
+        with Session() as s:
+            records = (
+                s.query(Record).filter_by(habit=self.id).order_by(Record.date.desc())
+            )
+            return records
 
 
 class Record(Base):
@@ -71,20 +81,51 @@ class Record(Base):
         return info
 
 
-class MethodBase:
-    def __init__(self, name):
-        self.name = name
-        self.streak = None
+class Method(Base):
+    TYPES = [
+        ("specified", "Specified Days"),
+        ("interval", "Interval"),
+        ("count", "Count"),
+    ]
+    DURATIONS = [
+        ("week", "Week"),
+        ("month", "Month"),
+        ("year", "Year"),
+    ]
 
-    def calc_streak(self, user, habit):
-        pass
+    __tablename__ = "methods"
+    id = Column(sqa.Integer, primary_key=True)
+    type = Column(ChoiceType(TYPES))
+    duration = Column(ChoiceType(DURATIONS))
+    # comma-separated list of day numbers (either in week, month, or year, week starting monday)
+    specified = Column(sqa.String, nullable=True)
+    interval = Column(sqa.Integer, nullable=True)
+    count = Column(sqa.Integer, nullable=True)
 
-    def get_records(self, user, habit):
-        with Session() as s:
-            records = (
-                s.query(Record)
-                .filter_by(user=user.id, habit=habit.id)
-                .order_by(Record.date.desc)
-                .options(load_only("date"))
-            )
-            return records
+    def __init__(self, type, duration, *args, **kwargs):
+        """ 
+        types: specified, interval, count
+        durations: week, month, year
+        for type interval: add interval kw
+        for type specified: add specified
+        for type count: add count
+
+        """
+        self.type = type
+        self.duration = duration
+        self.interval = kwargs.get('interval')
+        self.count = kwargs.get('count')
+        if kwargs.get('specified'):
+            self.specified = self.convert_specified(kwargs.get('specified'))
+
+    @property
+    def specified_days(self):
+        """Converts comma seperated string of days to a list of integars."""
+        if self.specified:
+            return [int(day) for day in self.specified.split(",")]
+        return []
+
+    def convert_specified(self, list_):
+        """Converts list of days to a comma seperated string."""
+        list_ = [str(day) for day in list_]
+        return ",".join(list_)
