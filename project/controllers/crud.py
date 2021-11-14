@@ -1,5 +1,6 @@
 from base import Session
 from models.models import User, Habit, Record
+from models.models import Method
 
 def create_habit(name,user,**kwargs):
     with Session() as s:
@@ -31,6 +32,30 @@ def create_record(user,habit,date):
             s.commit()
         return record
 
+def create_method(*args, **kwargs):
+    """required kwargs: type, duration
+    optional kwargs: specified, interval, count
+    you should have exactly one of the optional kwargs."""
+    
+    type_ = kwargs.pop('type')
+    duration = kwargs.pop('duration')
+    if not(type_ and duration):
+        return None
+        
+    with Session() as s:
+        method = Method(type_, duration, **kwargs)
+        s.add(method)
+        s.commit()
+        return method
+
+def add_method(habit,method):
+    with Session() as s:
+        habit = s.merge(habit)
+        method = s.merge(method)
+        habit.method = method.id
+        s.commit()
+        return habit
+        
 def get_user(id):
     """gets user from db by their telegram id."""
     with Session() as s:
