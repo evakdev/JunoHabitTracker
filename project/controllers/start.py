@@ -1,78 +1,127 @@
-from base import dispatcher
+from telegram.ext.callbackqueryhandler import CallbackQueryHandler
+from telegram.ext.filters import Filters
+from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
+from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 from telegram.ext.commandhandler import CommandHandler
 from telegram.ext.conversationhandler import ConversationHandler
-import re
-from telegram.ext.filters import Filters
 from telegram.ext.messagehandler import MessageHandler
-from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
-
+from controllers.crud import create_habit, add_method, get_user
+from controllers.habitcreator import HabitCreator
+from controllers.base import Conversation
 from controllers.crud import create_user
+from controllers.timezone import Timezone
+habitcreator = HabitCreator()
+timezone = Timezone()
 
-TZMESSAGE, TIMEZONE = range(2)
-start_msg = "Awesome, lets start!"
-cancel_msg = "nah, cancel"
-
-
-def start(update, context):
-    user_name = update.message.from_user.first_name
-    message = f"""
-    Hi there {user_name}! 
-    I'm Juno, your personal habit tracker! 
-    You can add as many habits as you want, decide how often you want to do them, and keep up your streak!
-    Ready to start adding some habits?
-    
-
-    """
-    reply_markup = ReplyKeyboardMarkup(
-        [[start_msg, cancel_msg]], one_time_keyboard=True, resize_keyboard=True
-    )
-    update.message.reply_text(message, reply_markup=reply_markup)
-    return TZMESSAGE
-
-
-def tzmessage(update, context):
-
-    message = """In order to show you dates correctly, I need to know your timezone offset. It should be something similar to this: UTC +1
-    If you dont know yours, go to https://time.is/time_zones and find the section with your country name in the page. 
-    Then just copy the title of that section for me and you're done!
-
-    Note: if you dont feel comfortable sharing your timezone, you can always use UTC +0. Just note that your dates might be shown wrongly.
-    """
-    update.message.reply_text(message)
-    return TIMEZONE
-
-
-def timezone(update, context):
-    try:
-        timezone = float(re.sub(r"u|t|c|U|T|C| ", "", update.message.text))
-        if not -12 <= timezone <= 12:
-            raise ValueError
-        create_user(id=update.message.from_user.id, timezone=timezone)
-        message = "You're all done! use /newhabit to create your first habit"
-        update.message.reply_text(message)
-        return ConversationHandler.END
-
-    except Exception as e:
-        print(e)
-        update.message.reply_text(
-            "The timezone format is wrong. please send it in the correct format."
+class MainMenu(Conversation):
+    def __init__(self):
+        super().__init__()
+        self.handler = ConversationHandler(
+            entry_points=[
+                CommandHandler("start", self.start),
+                CommandHandler("main", self.main_menu),
+                ],
+            states={
+                self.keys.backtomain: [CallbackQueryHandler(self.main_menu, pattern=self.keys.backtomain)],
+                self.keys.main_menu: [
+                    habitcreator.handler,
+                    timezone.handler,
+                    ],
+                self.keys.timezone: [
+                    timezone.handler,
+                    CallbackQueryHandler(self.skip_timezone,pattern=self.keys.skip_timezone)],
+            },
+            fallbacks=[CommandHandler("cancel", self.cancel)],
+            name = "Main Menu"
         )
-        return TIMEZONE
+
+    def add_keys(self):
+        super().add_keys()
+        self.keys.initial_setup = "initial_setup"
+        self.keys.main_menu = "main_menu"
+        self.keys.manage = "manage"
+        self.keys.log = "log"
+        self.keys.stats = "stats"
+        self.keys.create = habitcreator.keys.id
+        self.keys.timezone = timezone.keys.id
+        self.keys.edit_timezone = timezone.keys.edit
+        self.keys.skip_timezone = "skip_timezone"
+        self.keys.delete_all = "delete_all"
+
+    def start(self, update, context):
+        self.user_id = update.message.from_user.id
+        self.user_name = update.message.from_user.first_name
+        user = get_user(self.user_id)
+        if user:
+            return self.main_menu(update, context)
+        return self.welcome(update, context)
+
+    def welcome(self, update, context):
+        text = (
+            f"Hi there {self.user_name}! 👋\n"
+            "I'm Juno, your personal habit tracker!\n"
+            "\n"
+            "You can add as many habits as you want, decide how often you want to do them, and keep up your streak.\n"
+            "I'll help you with that! 🤖\n"
+        )
+        update.message.reply_text(text=text)
+        text = "Let's get started!"
+        update.message.reply_text(text=text)
+        text = (
+            "In order to start, I need to know your timezone offset.\n"
+            "\n"
+            "This helps me show you correct log dates, and generally avoid confusing you with our timezone difference. \n"
+            "\n"
+            "if you don't feel comfortable sharing that, you can always use UTC +0. Just note that your dates might be shown wrongly.\n"
+        )
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    "Set My Timezone", callback_data=self.keys.timezone
+                ),
+                InlineKeyboardButton(
+                    "Set it to UTC +0", callback_data=self.keys.skip_timezone
+                ),
+            ]
+        ]
+        keyboard = InlineKeyboardMarkup(buttons)
+        update.message.reply_text(text=text, reply_markup=keyboard)
+        return self.keys.timezone
 
 
-def cancel(update, context) -> int:
-    user = update.message.from_user
-    update.message.reply_text("cancelling command.")
+    def main_menu(self, update, context):
+        text = (
+            "You can see your current habits, log for them, see stats, or create new ones.\n"
+            "Change your timezone if Daylight Saving has recently applied.\n"
+            "at any point, you can send /main to return to this menu.\n"
+        )
+        buttons = [
+            [
+                InlineKeyboardButton("Manage Habits", callback_data=self.keys.manage),
+                InlineKeyboardButton("See Stats", callback_data=self.keys.stats),
+            ],
+            [
+                InlineKeyboardButton("Log for a Habit", callback_data=self.keys.log),
+                InlineKeyboardButton(
+                    "✔ Create a New Habit", callback_data=self.keys.create
+                ),
+            ],
+            [
+                InlineKeyboardButton("✔ Edit Timezone", callback_data=self.keys.edit_timezone),
+                InlineKeyboardButton(
+                    "Delete all my data", callback_data=self.keys.delete_all
+                ),
+            ],
+        ]
+        keyboard = InlineKeyboardMarkup(buttons)
+        try:
+            update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
+        except:
+            update.message.reply_text(text=text, reply_markup=keyboard)
+        return self.keys.main_menu
 
-    return ConversationHandler.END
 
-
-convo_handler = ConversationHandler(
-    entry_points=[CommandHandler("start", start)],
-    states={
-        TZMESSAGE: [MessageHandler(Filters.regex(f"{start_msg}"), tzmessage)],
-        TIMEZONE: [MessageHandler(Filters.text, timezone)],
-    },
-    fallbacks=[CommandHandler("cancel", cancel)],
-)
-dispatcher.add_handler(convo_handler)
+    def skip_timezone(self, update, context):
+        self.timezone = 0
+        user = create_user(id=self.user_id, timezone=0)
+        return self.main_menu(update, context)
