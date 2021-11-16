@@ -2,78 +2,81 @@ from telegram.ext.callbackqueryhandler import CallbackQueryHandler
 from telegram.ext.filters import Filters
 from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
 from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
-from telegram.replykeyboardmarkup import ReplyKeyboardMarkup
-from base import dispatcher
 from telegram.ext.commandhandler import CommandHandler
 from telegram.ext.conversationhandler import ConversationHandler
 from telegram.ext.messagehandler import MessageHandler
-from controllers.crud import create_habit
+from controllers.crud import create_habit, add_method
+from controllers.methodcreator import MethodCreator
+from controllers.base import Conversation
+from controllers.crud import create_method
 
-NEWHABIT, HABITMAKER, METHODMAKER, DONE = range(4)
+methodcreator = MethodCreator()
 
-def new_habit(update, context):
-    update.message.reply_text("What should we name your new habit?")
-    return HABITMAKER
-
-def habit_maker(update, context):
-    
-    user_id = update.message.from_user.id
-    habit_name = "".join(update.message.text).capitalize()
-    habit = create_habit(habit_name, user_id)
-
-    if habit:
-        context.user_data['habit'] = dict()
-        context.user_data['habit']['object'] = habit
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton('Next', callback_data='next')]])
-        update.message.reply_text(
-            "Awesome. Click on next to go to the next step.",
-            reply_markup=keyboard,
+class HabitCreator(Conversation):
+    def __init__(self):
+        super().__init__()
+        self.handler = ConversationHandler(
+            entry_points=[
+                CallbackQueryHandler(self.ask_name,pattern = f"^{self.keys.id}$")
+            ],
+            states={
+                self.keys.answer1: [MessageHandler(Filters.text,callback=self.get_name)],
+                self.keys.answer2: [methodcreator.handler],
+                self.keys.methodend: [CallbackQueryHandler(self.end,pattern=f"^{self.keys.methodend}$")]
+            },
+            fallbacks=[
+                CommandHandler(self.keys.cancel, self.cancel)
+                ],
+            map_to_parent={self.keys.end: self.keys.goback},
+            name='Habit Creator'
         )
-        """
-        update.message.reply_text(
-            f"Awesome! How do you want to track {update.message.text}?"
-        )"""
-        return METHODMAKER
-    else:
-        update.message.reply_text(
-            "Looks like you already have that habit!"
+
+    
+    def add_keys(self):
+        super().add_keys()
+        self.keys.id ='habitmaker'
+        self.keys.methodend = methodcreator.keys.methodend
+        self.keys.goback = 'gobacktomain'
+        self.keys.answer1 = self.keys.id + '1'
+        self.keys.answer2 = self.keys.id + '2'
+
+    def ask_name(self, update, context):
+        update.callback_query.edit_message_text("What should we name your new habit?")
+        return self.keys.answer1	
+
+    def get_name(self,update,context):
+        user_id = update.message.from_user.id
+        self.habit_name = "".join(update.message.text).capitalize() #will need habit name later.
+        self.habit = create_habit(self.habit_name, user_id)
+        if self.habit:
+            return self.ask_method(update,context)
+        
+        text = ("Looks like you already have that habit!",
             "go to /managehabits to edit it if you want, or enter a new name."
         )
-        return HABITMAKER
+        update.message.reply_text(text)
+        return self.keys.answer1
 
+    def ask_method(self, update, context):
 
+        text = "Awesome. Click on next to go to the next step."
+        button = InlineKeyboardButton('Next', callback_data=methodcreator.keys.id)
+        keyboard = InlineKeyboardMarkup([[button]])
+        update.message.reply_text(text, reply_markup=keyboard)
+        return self.keys.answer2
 
-from controllers.crud import add_method
-def done(update, context):
-    info = context.user_data.get('habit')
-    add_method(info['object'], info['method'])
+    def end(self, update, context):
+        method = create_method(**context.user_data.get("method"))
+        print(method)
+        add_method(self.habit,method)
 
-    update.callback_query.edit_message_text(
-        "All done!"
-        "Starting from now, you can start logging using /log."
-        "Now go get it done! 💪"
-    )
-    return ConversationHandler.END
-
-
-def cancel(update, context) -> int:
-    user = update.message.from_user
-    update.message.reply_text("cancelling command.")
-
-    return ConversationHandler.END
-
-from controllers.methodmaker import method_convo_handler, METHODCHOICEEND
-
-convo_handler = ConversationHandler(
-    entry_points=[CommandHandler("newhabit", new_habit)],
-    states={
-        HABITMAKER: [MessageHandler(Filters.text, habit_maker)],
-        METHODMAKER: [method_convo_handler],
-        METHODCHOICEEND: [CallbackQueryHandler(callback=done, pattern=f'^save$')],
-    },
-    fallbacks=[CommandHandler("cancel", cancel)],
-    name ='convo handler'
-)
-
-
-dispatcher.add_handler(convo_handler)
+        text = (
+            "All done!"
+            f"Starting from now, you can start logging for {self.habit_name}."
+            "Now go get it done! 💪"
+        )
+        button = InlineKeyboardButton('Back to Main Menu', callback_data=self.keys.goback)
+        keyboard = InlineKeyboardMarkup([[button]])
+        
+        update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
+        return self.keys.end
