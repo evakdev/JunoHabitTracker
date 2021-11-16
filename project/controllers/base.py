@@ -17,6 +17,7 @@ class Conversation:
         keys.id = ""
         keys.end = -1
         keys.cancel = keys.id + "cancel"
+        keys.backtomain = 'backtomain'
         self.keys = keys
 
     def cancel(self, update, context):
