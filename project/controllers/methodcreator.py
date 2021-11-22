@@ -27,7 +27,7 @@ class MethodCreator(Conversation):
                 self.keys.answer1: types,
             },
             fallbacks=[CommandHandler(self.keys.cancel, self.cancel)],
-            map_to_parent={self.keys.goback: self.keys.methodend,},
+            map_to_parent={self.keys.backtomain: self.keys.methodend,},
             name='Method Creator'
         )
     
@@ -36,7 +36,6 @@ class MethodCreator(Conversation):
         self.keys.id = "methodcreator"
         self.keys.answer1 = self.keys.id + "1"
         self.keys.methodend = 'methodend'
-        self.keys.goback = "gobacktomain"
 
     def ask_type(self, update,context):
         buttons = [
