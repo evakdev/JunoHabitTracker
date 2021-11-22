@@ -28,15 +28,16 @@ def create_user(id, timezone):
         return user
 
 
-def create_record(user, habit, date):
+def create_record(user_id, habit_id, date):
     with Session() as s:
         record = (
-            s.query(Record).filter_by(user=user, habit=habit, date=date).one_or_none()
+            s.query(Record).filter_by(user=user_id, habit=habit_id, date=date).one_or_none()
         )
-        if not record:
-            record = Record(user=user, habit=habit, date=date)
-            s.add(record)
-            s.commit()
+        if record:
+            return None
+        record = Record(user=user_id, habit=habit_id, date=date)
+        s.add(record)
+        s.commit()
         return record
 
 
@@ -81,8 +82,64 @@ def get_user(id):
         return user
 
 
-def get_habit(name, user_id):
-    """gets habit from db by users id and habits name"""
+def get_habit(id, user_id):
+    """gets habit from db by users id and habit id"""
     with Session() as s:
-        habit = s.query(Habit).filter_by(name=name, user=user_id).one_or_none()
+        habit = s.query(Habit).filter_by(id=id, user=user_id).one_or_none()
         return habit
+
+def find_habit_by_name(habit_name, user_id):
+    """Gets habit from db by user id and habit name. 
+    Returns none if user has no habit in that name.
+    """
+    with Session() as s:
+        habit = s.query(Habit).filter_by(name=habit_name, user=user_id).one_or_none()
+        return habit
+def edit_habit(habit, *args, **kwargs):
+    """Works with either habit or its id.
+    will edit name, and/or method.
+    to edit method, provide new method's id or object."""
+    with Session() as s:
+        if type(habit)==int:
+            habit = s.query(Habit).filter_by(id=id).one_or_none()
+        name = kwargs.get('name')
+        method = kwargs.get('method')
+        if name:
+            habit.name=name
+        if method:
+            method=method.id if type(method)==Method else method
+            old_method_id=habit.method
+            habit.method = method
+            old_method=s.query(Method).filter_by(id=old_method_id).one_or_none()
+            old_method.delete()
+        s.commit()
+        s.refresh(habit)
+        
+
+
+            
+            
+        
+    
+    name = kwargs.get('name')
+    method = kwargs.get('method')
+    
+        
+
+    
+def get_method(id):
+    with Session() as s:
+        method = s.query(Method).filter_by(id=id).one_or_none()
+        return method
+
+def get_record(user_id, habit_id, date):
+    with Session() as s:
+        record = (
+            s.query(Record).filter_by(user=user_id, habit=habit_id, date=date).one_or_none()
+        )
+        return record
+
+def delete_record(record):
+    with Session() as s:
+        s.delete(record)
+        s.commit()
