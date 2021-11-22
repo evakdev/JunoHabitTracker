@@ -30,7 +30,7 @@ class MethodCreator(Conversation):
             map_to_parent={self.keys.backtomain: self.keys.methodend,},
             name='Method Creator'
         )
-    
+     
     def add_keys(self):
         super().add_keys()
         self.keys.id = "methodcreator"
