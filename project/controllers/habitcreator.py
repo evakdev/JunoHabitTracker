@@ -27,7 +27,7 @@ class HabitCreator(Conversation):
             fallbacks=[
                 CommandHandler(self.keys.cancel, self.cancel)
                 ],
-            map_to_parent={self.keys.end: self.keys.goback},
+            map_to_parent={self.keys.end: self.keys.backtomain},
             name='Habit Creator'
         )
 
@@ -36,7 +36,6 @@ class HabitCreator(Conversation):
         super().add_keys()
         self.keys.id ='habitmaker'
         self.keys.methodend = methodcreator.keys.methodend
-        self.keys.goback = 'gobacktomain'
         self.keys.answer1 = self.keys.id + '1'
         self.keys.answer2 = self.keys.id + '2'
 
@@ -51,7 +50,7 @@ class HabitCreator(Conversation):
         if self.habit:
             return self.ask_method(update,context)
         
-        text = ("Looks like you already have that habit!",
+        text = ("Looks like you already have that habit!\n"
             "go to /managehabits to edit it if you want, or enter a new name."
         )
         update.message.reply_text(text)
@@ -70,12 +69,14 @@ class HabitCreator(Conversation):
         print(method)
         add_method(self.habit,method)
 
+
         text = (
-            "All done!"
-            f"Starting from now, you can start logging for {self.habit_name}."
+            "All done!\n"
+            f"Starting from now, you can start logging for {self.habit_name}.\n"
+            "\n"
             "Now go get it done! 💪"
         )
-        button = InlineKeyboardButton('Back to Main Menu', callback_data=self.keys.goback)
+        button = InlineKeyboardButton('↩ Back to Main Menu', callback_data=self.keys.backtomain)
         keyboard = InlineKeyboardMarkup([[button]])
         
         update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
