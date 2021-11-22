@@ -1,4 +1,5 @@
 
+import telegram
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
 from telegram.ext.conversationhandler import ConversationHandler
 from telegram.ext.messagehandler import MessageHandler
@@ -17,7 +18,7 @@ class MethodConversation(Conversation):
         super().__init__()
     def add_keys(self):
         super().add_keys()
-        self.keys.goback = "gobacktomain"
+        self.keys.goback = "backtomain"
         self.keys.methodend = "methodend"
         
     def end(self, update, context):
@@ -57,7 +58,7 @@ class Everyday(MethodConversation):
         method_dict = {
             "type": 'interval',
             "duration": "month",
-            "interval": 0,
+            "interval": 1,
         }
         context.user_data["method"] = method_dict
         return self.end(update, context)
@@ -72,7 +73,7 @@ class Interval(MethodConversation):
             states={
                 self.keys.answer1: [
                     MessageHandler(
-                        filters=Filters.regex(pattern=r"^[0-9]*$"),
+                        filters=Filters.regex(pattern=r"^[1-9]*$"),
                         callback=self.get_interval,
                     )
                 ]
@@ -96,8 +97,15 @@ class Interval(MethodConversation):
         return self.ask_interval(update, context)
 
     def ask_interval(self, update, context):
-        text = "How many days do you wanna have in between?\n(e.g. 1 means you do it every 2 days.)"
-        update.callback_query.edit_message_text(text)
+        text = (
+            "Fill the blank:\n"
+            "I want to do this every ... days.\n"
+            "\n"
+            "<b>Example:</b>\n"
+            "1 means every day\n"
+            "2 means every other day"
+        )
+        update.callback_query.edit_message_text(text, parse_mode=telegram.ParseMode.HTML)
         return self.keys.answer1
 
     def get_interval(self, update, context):
