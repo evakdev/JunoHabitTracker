@@ -1,17 +1,18 @@
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
-from telegram.ext.filters import Filters
 from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
 from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 from telegram.ext.commandhandler import CommandHandler
 from telegram.ext.conversationhandler import ConversationHandler
-from telegram.ext.messagehandler import MessageHandler
-from controllers.crud import create_habit, add_method, get_user
+from controllers.crud import get_user
 from controllers.habitcreator import HabitCreator
 from controllers.base import Conversation
 from controllers.crud import create_user
 from controllers.timezone import Timezone
+from controllers.logger import Logger
+
 habitcreator = HabitCreator()
 timezone = Timezone()
+logger = Logger()
 
 class MainMenu(Conversation):
     def __init__(self):
@@ -26,6 +27,7 @@ class MainMenu(Conversation):
                 self.keys.main_menu: [
                     habitcreator.handler,
                     timezone.handler,
+                    logger.handler,
                     ],
                 self.keys.timezone: [
                     timezone.handler,
@@ -40,7 +42,7 @@ class MainMenu(Conversation):
         self.keys.initial_setup = "initial_setup"
         self.keys.main_menu = "main_menu"
         self.keys.manage = "manage"
-        self.keys.log = "log"
+        self.keys.log = logger.keys.id
         self.keys.stats = "stats"
         self.keys.create = habitcreator.keys.id
         self.keys.timezone = timezone.keys.id
@@ -97,11 +99,11 @@ class MainMenu(Conversation):
         )
         buttons = [
             [
-                InlineKeyboardButton("Manage Habits", callback_data=self.keys.manage),
+                InlineKeyboardButton("⏺ Log for a Habit", callback_data=self.keys.log),
                 InlineKeyboardButton("See Stats", callback_data=self.keys.stats),
             ],
             [
-                InlineKeyboardButton("Log for a Habit", callback_data=self.keys.log),
+                InlineKeyboardButton("Manage Habits", callback_data=self.keys.manage),
                 InlineKeyboardButton(
                     "✔ Create a New Habit", callback_data=self.keys.create
                 ),
