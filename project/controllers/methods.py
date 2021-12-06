@@ -1,10 +1,8 @@
-
-import telegram
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
 from telegram.ext.conversationhandler import ConversationHandler
 from telegram.ext.messagehandler import MessageHandler
 from telegram.ext.commandhandler import CommandHandler
-
+from telegram import ParseMode
 from telegram.ext.filters import Filters
 from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
 from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
@@ -18,12 +16,13 @@ class MethodConversation(Conversation):
         super().__init__()
     def add_keys(self):
         super().add_keys()
-        self.keys.goback = "backtomain"
-        self.keys.methodend = "methodend"
         
     def end(self, update, context):
-        text = "Click the button to save your new habit."
-        button = [InlineKeyboardButton("Save", callback_data=self.keys.methodend)]
+        method = create_method(**context.user_data.get("method"))
+        context.user_data['method'] = method
+
+        text = "Okay, let's save all this..."
+        button = [InlineKeyboardButton("Save", callback_data=self.keys.goback)]
         keyboard = InlineKeyboardMarkup([button])
 
         try:
@@ -98,14 +97,14 @@ class Interval(MethodConversation):
 
     def ask_interval(self, update, context):
         text = (
-            "Fill the blank:\n"
+            "Fill in the blank:\n"
             "I want to do this every ... days.\n"
             "\n"
             "<b>Example:</b>\n"
             "1 means every day\n"
             "2 means every other day"
         )
-        update.callback_query.edit_message_text(text, parse_mode=telegram.ParseMode.HTML)
+        update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML)
         return self.keys.answer1
 
     def get_interval(self, update, context):
@@ -166,7 +165,7 @@ class Count(MethodConversation):
     def ask_count(self, update, context):
         text = f"How many times a {self.duration} do you want to do this habit?"
         update.callback_query.edit_message_text(text)
-        return self.keys.answer2(update, context)
+        return self.keys.answer2
     
     def get_count(self, update, context):
         count = int(update.message.text)

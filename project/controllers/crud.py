@@ -1,6 +1,5 @@
 from base import Session
-from models.models import User, Habit, Record
-from models.models import Method
+from models.models import User, Habit, Record, Method
 
 
 def create_habit(name, user, **kwargs):
@@ -31,7 +30,9 @@ def create_user(id, timezone):
 def create_record(user_id, habit_id, date):
     with Session() as s:
         record = (
-            s.query(Record).filter_by(user=user_id, habit=habit_id, date=date).one_or_none()
+            s.query(Record)
+            .filter_by(user=user_id, habit=habit_id, date=date)
+            .one_or_none()
         )
         if record:
             return None
@@ -62,6 +63,8 @@ def add_method(habit, method):
     with Session() as s:
         habit = s.merge(habit)
         method = s.merge(method)
+        if habit.method:
+            habit.method.delete()
         habit.method = method.id
         s.commit()
         return habit
@@ -69,9 +72,7 @@ def add_method(habit, method):
 
 def add_timezone(user, timezone):
     with Session() as s:
-
-        s.merge(user)
-        user.timezone = timezone
+        s.query(User).filter_by(id=user.id).update({"timezone": timezone})
         s.commit()
 
 
@@ -88,58 +89,77 @@ def get_habit(id, user_id):
         habit = s.query(Habit).filter_by(id=id, user=user_id).one_or_none()
         return habit
 
+
 def find_habit_by_name(habit_name, user_id):
-    """Gets habit from db by user id and habit name. 
+    """Gets habit from db by user id and habit name.
     Returns none if user has no habit in that name.
     """
     with Session() as s:
         habit = s.query(Habit).filter_by(name=habit_name, user=user_id).one_or_none()
         return habit
+
+
 def edit_habit(habit, *args, **kwargs):
     """Works with either habit or its id.
     will edit name, and/or method.
     to edit method, provide new method's id or object."""
     with Session() as s:
-        if type(habit)==int:
+        s.merge(habit)
+        if type(habit) == int:
             habit = s.query(Habit).filter_by(id=id).one_or_none()
-        name = kwargs.get('name')
-        method = kwargs.get('method')
+        name = kwargs.get("name")
+        method = kwargs.get("method")
         if name:
-            habit.name=name
+            habit.name = name
         if method:
-            method=method.id if type(method)==Method else method
-            old_method_id=habit.method
+            method = method.id if type(method) == Method else method
+            old_method_id = habit.method
             habit.method = method
-            old_method=s.query(Method).filter_by(id=old_method_id).one_or_none()
+            old_method = s.query(Method).filter_by(id=old_method_id).one_or_none()
             old_method.delete()
         s.commit()
-        s.refresh(habit)
-        
+        return habit
 
 
-            
-            
-        
-    
-    name = kwargs.get('name')
-    method = kwargs.get('method')
-    
-        
-
-    
 def get_method(id):
     with Session() as s:
         method = s.query(Method).filter_by(id=id).one_or_none()
         return method
 
+
 def get_record(user_id, habit_id, date):
     with Session() as s:
         record = (
-            s.query(Record).filter_by(user=user_id, habit=habit_id, date=date).one_or_none()
+            s.query(Record)
+            .filter_by(user=user_id, habit=habit_id, date=date)
+            .one_or_none()
         )
         return record
+
 
 def delete_record(record):
     with Session() as s:
         s.delete(record)
+        s.commit()
+
+
+def delete_habit(habit, delete_records=True, delete_method=True):
+    with Session() as s:
+        if delete_records:
+            records = s.query(Record).filter_by(habit=habit.id)
+            records.delete(synchronize_session=False) if records.count() else None
+
+        if delete_method:
+            method = s.query(Method).filter_by(id=habit.method)
+            method.delete(synchronize_session=False) if method.count() else None
+
+        habit = s.query(Habit).filter_by(id=habit.id).one_or_none()
+        s.delete(habit)
+        s.commit()
+
+
+def delete_user(user_id):
+    with Session() as s:
+        user = s.query(User).filter_by(id=user_id)
+        user.delete(synchronize_session=False) if user.count() else None
         s.commit()
