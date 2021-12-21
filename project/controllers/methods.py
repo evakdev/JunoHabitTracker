@@ -1,28 +1,36 @@
-from telegram.ext.callbackqueryhandler import CallbackQueryHandler
-from telegram.ext.conversationhandler import ConversationHandler
-from telegram.ext.messagehandler import MessageHandler
 from telegram.ext.commandhandler import CommandHandler
-from telegram import ParseMode
+from telegram.ext.callbackqueryhandler import CallbackQueryHandler
+from telegram.ext.messagehandler import MessageHandler
 from telegram.ext.filters import Filters
 from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
 from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 from controllers.crud import create_method
 from controllers.base import Conversation
+from controllers.ptbshortcuts import send_message
 
 
 # Base Class
 class MethodConversation(Conversation):
     def __init__(self):
         super().__init__()
+
     def add_keys(self):
         super().add_keys()
-        
+
+    def create_handler(self):
+        super().create_handler()
+        # This is overwritten because methods are fourth-level conversations,
+        # and need to return end, not self.keys.main_menu, so that main menu
+        # menu buttons work if user presses /main..
+        self.handler._map_to_parent = {
+            self.keys.goback: self.keys.goback,
+            self.keys.end: self.keys.end,
+        }
+
     def end(self, update, context):
-        method = create_method(**context.user_data.get("method"))
-        context.user_data['method'] = method
 
         text = "Okay, let's save all this..."
-        button = [InlineKeyboardButton("Save", callback_data=self.keys.goback)]
+        button = [InlineKeyboardButton("Save", callback_data=self.keys.methodend)]
         keyboard = InlineKeyboardMarkup([button])
 
         try:
@@ -30,24 +38,22 @@ class MethodConversation(Conversation):
         except:
             update.callback_query.edit_message_text(text, reply_markup=keyboard)
 
-        return self.keys.end
+        return self.keys.goback
 
     def add_to_dict(self, update, context):
         pass
+
 
 # Methods
 class Everyday(MethodConversation):
     def __init__(self):
         super().__init__()
-        self.handler = ConversationHandler(
-            entry_points=[
-                CallbackQueryHandler(self.add_to_dict, pattern=f"^{self.keys.id}$")
-            ],
-            states={str: []},
-            fallbacks=[CommandHandler(self.keys.cancel, self.cancel)],
-            map_to_parent={self.keys.end: self.keys.goback},
-            name='Everyday Method'
-        )
+        self.entry_points = [
+            CallbackQueryHandler(self.add_to_dict, pattern=f"^{self.keys.id}$")
+        ]
+        self.states = {str: []}
+        self.name = "Everyday Method"
+        self.create_handler()
 
     def add_keys(self):
         super().add_keys()
@@ -55,32 +61,30 @@ class Everyday(MethodConversation):
 
     def add_to_dict(self, update, context):
         method_dict = {
-            "type": 'interval',
+            "type": "interval",
             "duration": "month",
             "interval": 1,
         }
         context.user_data["method"] = method_dict
         return self.end(update, context)
 
+
 class Interval(MethodConversation):
     def __init__(self):
         super().__init__()
-        self.handler = ConversationHandler(
-            entry_points=[
-                CallbackQueryHandler(self.add_to_dict, pattern=f"^{self.keys.id}$")
-            ],
-            states={
-                self.keys.answer1: [
-                    MessageHandler(
-                        filters=Filters.regex(pattern=r"^[1-9]*$"),
-                        callback=self.get_interval,
-                    )
-                ]
-            },
-            fallbacks=[CommandHandler(self.keys.cancel, self.cancel)],
-            map_to_parent={self.keys.end: self.keys.goback},
-            name='Interval Method'
-        )
+        self.entry_points = [
+            CallbackQueryHandler(self.add_to_dict, pattern=f"^{self.keys.id}$")
+        ]
+        self.states = {
+            self.keys.answer1: [
+                MessageHandler(
+                    filters=Filters.regex(pattern=r"^[1-9]*$"),
+                    callback=self.get_interval,
+                )
+            ]
+        }
+        self.name = "Interval Method"
+        self.create_handler()
 
     def add_keys(self):
         super().add_keys()
@@ -102,9 +106,9 @@ class Interval(MethodConversation):
             "\n"
             "<b>Example:</b>\n"
             "1 means every day\n"
-            "2 means every other day"
+            "2 means every other day; e.g. Saturday, Monday, Wednesday, ..."
         )
-        update.callback_query.edit_message_text(text, parse_mode=ParseMode.HTML)
+        update.callback_query.edit_message_text(text, parse_mode="HTML")
         return self.keys.answer1
 
     def get_interval(self, update, context):
@@ -113,36 +117,46 @@ class Interval(MethodConversation):
         context.user_data["method"]["interval"] = days
         return self.end(update, context)
 
+
 class Count(MethodConversation):
     def __init__(self):
         super().__init__()
-        self.handler = ConversationHandler(
-            entry_points=[
-                CallbackQueryHandler(self.add_to_dict, pattern=f"^{self.keys.id}$")
+        self.entry_points = [
+            CallbackQueryHandler(self.add_to_dict, pattern=f"^{self.keys.id}$")
+        ]
+        self.states = {
+            self.keys.answer1: [
+                CallbackQueryHandler(
+                    self.get_duration,
+                    pattern=f"^{self.keys.week}$|^{self.keys.month}$",
+                )
             ],
-            states={
-                self.keys.answer1: [CallbackQueryHandler(self.get_duration, pattern=f"^{self.keys.week}$|^{self.keys.month}$")],
-                self.keys.answer2: [MessageHandler(filters=Filters.regex(pattern=r"^[0-9]*$"), callback=self.get_count)],
-            },
-            fallbacks=[CommandHandler(self.keys.cancel, self.cancel)],
-            map_to_parent={self.keys.end: self.keys.goback},
-            name='Count Method'
-        )
+            self.keys.answer2: [
+                MessageHandler(
+                    filters=Filters.regex(pattern=r"^[0-9]*$"),
+                    callback=self.get_count,
+                )
+            ],
+        }
+
+        self.name = "Count Method"
+        self.create_handler()
+
     def add_keys(self):
         super().add_keys()
         self.keys.id = "count"
-        self.keys.week = 'week'
-        self.keys.month = 'month'
+        self.keys.week = "week"
+        self.keys.month = "month"
         self.keys.answer1 = self.keys.id + "1"
         self.keys.answer2 = self.keys.id + "2"
-    
+
     def add_to_dict(self, update, context):
         method_dict = {
-            'type': self.keys.id,
+            "type": self.keys.id,
         }
         context.user_data["method"] = method_dict
         return self.ask_duration(update, context)
-    
+
     def ask_duration(self, update, context):
         text = "Do you want to track based on the week, or the month?"
         buttons = [
@@ -160,52 +174,77 @@ class Count(MethodConversation):
         if not self.duration in [self.keys.week, self.keys.month]:
             return self.keys.cancel
         context.user_data.get("method")["duration"] = self.duration
-        return self.ask_count(update,context)
-    
+        return self.ask_count(update, context)
+
     def ask_count(self, update, context):
         text = f"How many times a {self.duration} do you want to do this habit?"
         update.callback_query.edit_message_text(text)
         return self.keys.answer2
-    
+
     def get_count(self, update, context):
-        count = int(update.message.text)
-        context.user_data.get("method")["count"] = count
-        return self.end(update, context)
+        count = update.message.text
+        if self.count_is_valid(count):
+            context.user_data.get("method")["count"] = int(count)
+            return self.end(update, context)
+        return self.wrong_count(update, context)
+
+    def wrong_count(self, update, context):
+        text = f"Please enter a valid number between 1 and {7 if self.duration==self.keys.week else 30}."
+        update.message.reply_text(text)
+        return self.keys.answer2
+
+    def count_is_valid(self, count):
+        if count == "" or count == "0":
+            return False
+        try:
+            count = int(count)
+        except:
+            return False
+
+        if self.duration == self.keys.week:
+            return count <= 7
+        if self.duration == self.keys.month:
+            return count <= 30  # What if a month is 28,29, or 31 days?
+
 
 class Specified(MethodConversation):
     def __init__(self):
         super().__init__()
         self.buttons = list()
-        self.handler = ConversationHandler(
-            entry_points=[
-                CallbackQueryHandler(self.add_to_dict, pattern=f"^{self.keys.id}$")
+        self.entry_points = [
+            CallbackQueryHandler(self.add_to_dict, pattern=f"^{self.keys.id}$")
+        ]
+        self.states = {
+            self.keys.answer1: [
+                CallbackQueryHandler(
+                    self.get_duration,
+                    pattern=f"^{self.keys.week}$|^{self.keys.month}$",
+                )
             ],
-            states={
-                self.keys.answer1: [CallbackQueryHandler(self.get_duration, pattern=f"^{self.keys.week}$|^{self.keys.month}$")],
-                self.keys.answer2: [CallbackQueryHandler(self.get_specified ,pattern="^day[1-9]+$")],
-                self.keys.done: [CallbackQueryHandler(self.pressed_done, pattern=f"^{self.keys.done}$")],
-            },
-            fallbacks=[CommandHandler(self.keys.cancel, self.cancel)],
-            map_to_parent={self.keys.end: self.keys.goback},
-            name='Specified Method'
-        )
+            self.keys.answer2: [
+                CallbackQueryHandler(self.get_specified, pattern="^day[0-9]+$")
+            ],
+        }
+        self.name = "Specified Method"
+
+        self.create_handler()
+
     def add_keys(self):
         super().add_keys()
         self.keys.id = "specified"
-        self.keys.week = 'week'
-        self.keys.month = 'month'
-        self.keys.done = 'done'
+        self.keys.week = "week"
+        self.keys.month = "month"
+        self.keys.done = "day0"
         self.keys.answer1 = self.keys.id + "1"
         self.keys.answer2 = self.keys.id + "2"
 
-    
     def add_to_dict(self, update, context):
         method_dict = {
-            'type': self.keys.id,
+            "type": self.keys.id,
         }
         context.user_data["method"] = method_dict
         return self.ask_duration(update, context)
-    
+
     def ask_duration(self, update, context):
         text = "Do you want to track based on the week, or the month?"
         buttons = [
@@ -221,11 +260,10 @@ class Specified(MethodConversation):
     def get_duration(self, update, context):
         self.duration = update.callback_query.data
         if not self.duration in [self.keys.week, self.keys.month]:
-            return self.keys.cancel
+            return self.keys.end
         context.user_data.get("method")["duration"] = self.duration
-        return self.ask_specified(update,context)
+        return self.ask_specified(update, context)
 
-    
     def ask_specified(self, update, context):
 
         text = f"Which days of the {self.duration} do you want to do this habit?"
@@ -235,27 +273,30 @@ class Specified(MethodConversation):
         return self.keys.answer2
 
     def get_specified(self, update, context):
+
         if update.callback_query.data == self.keys.done:
             return self.pressed_done(update, context)
-
         choice = update.callback_query.data
-        context.user_data.get("method")["specified"] = self.update_days(context,choice)
+        context.user_data.get("method")["specified"] = self.update_days(context, choice)
         self.update_buttons(choice)
         text = f"You can choose as many days as you want. when you're done, click Done."
         keyboard = InlineKeyboardMarkup(self.buttons)
         update.callback_query.edit_message_text(text, reply_markup=keyboard)
         return self.keys.answer2
 
-    def pressed_done(self, update,context):
-        if context.user_data.get("method")["specified"]:
+    def pressed_done(self, update, context):
+        if context.user_data.get("method").get("specified"):
+
             return self.end(update, context)
-        text = "You must choose at least one day."	
+        text = "❌ You must choose at least one day."
         keyboard = InlineKeyboardMarkup(self.buttons)
         update.callback_query.edit_message_text(text, reply_markup=keyboard)
         return self.keys.answer2
 
     def create_buttons(self):
-        week_buttons = [
+        done_button = InlineKeyboardButton("Done", callback_data=self.keys.done)
+        if self.duration == self.keys.week:
+            self.buttons = [
                 [InlineKeyboardButton("Monday", callback_data="day1")],
                 [InlineKeyboardButton("Tuesday", callback_data="day2")],
                 [InlineKeyboardButton("Wednesday", callback_data="day3")],
@@ -263,22 +304,17 @@ class Specified(MethodConversation):
                 [InlineKeyboardButton("Friday", callback_data="day5")],
                 [InlineKeyboardButton("Saturday", callback_data="day6")],
                 [InlineKeyboardButton("Sunday", callback_data="day7")],
-                [InlineKeyboardButton("Done", callback_data=self.keys.done)],
+                [done_button],
             ]
-        month_buttons = [
+        elif self.duration == self.keys.month:
+            self.buttons = [
                 [
                     InlineKeyboardButton(str(i + j), callback_data=f"day{i+j}")
                     for j in range(1, 6)
                 ]
                 for i in range(0, 26, 5)
             ]
-        month_buttons.append(
-                [InlineKeyboardButton("Done", callback_data=self.keys.done)]
-            )
-        if self.duration == self.keys.week:
-            self.buttons = week_buttons
-        if self.duration == self.keys.month:
-            self. buttons = month_buttons
+            self.buttons.append([done_button])
 
     def is_checked(self, button):
         return button.text.startswith("✅")
@@ -286,15 +322,17 @@ class Specified(MethodConversation):
     def update_buttons(self, choice):
         for i, row in enumerate(self.buttons):
             for j, button in enumerate(row):
-                if button.callback_data != choice: 
+                if button.callback_data != choice:
                     continue
                 if self.is_checked(button):
                     text = button.text.replace("✅", "")
                 else:
                     text = button.text = "✅ " + button.text
-                self.buttons[i][j] = InlineKeyboardButton(text, callback_data=button.callback_data)
+                self.buttons[i][j] = InlineKeyboardButton(
+                    text, callback_data=button.callback_data
+                )
                 return
-        return 
+        return
 
     def update_days(self, context, choice):
         days = context.user_data.get("method").get("specified", list())
@@ -303,4 +341,4 @@ class Specified(MethodConversation):
             days.remove(clean_choice)
         else:
             days.append(clean_choice)
-        return days 
+        return days

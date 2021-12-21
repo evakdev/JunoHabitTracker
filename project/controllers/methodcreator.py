@@ -1,6 +1,4 @@
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
-from telegram.ext.conversationhandler import ConversationHandler
-from telegram.ext.commandhandler import CommandHandler
 from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
 from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 from controllers.base import Conversation
@@ -15,23 +13,34 @@ specified = Specified()
 class MethodCreator(Conversation):
     def __init__(self):
         super().__init__()
-        types = [everyday.handler, interval.handler, count.handler, specified.handler]
 
-        self.handler = ConversationHandler(
-            entry_points=[CallbackQueryHandler(self.ask_type, pattern=self.keys.id)],
-            states={
-                self.keys.answer1: types,
-            },
-            fallbacks=[CommandHandler(self.keys.cancel, self.cancel)],
-            map_to_parent={self.keys.goback: self.keys.goback},
-            name="Method Creator",
-        )
+        self.entry_points = [CallbackQueryHandler(self.ask_type, pattern=self.keys.id)]
+        self.states = {
+            self.keys.answer1: [
+                everyday.handler,
+                interval.handler,
+                count.handler,
+                specified.handler,
+            ],
+        }
+
+        self.name = "Method Creator"
+        self.create_handler()
 
     def add_keys(self):
         super().add_keys()
         self.keys.id = "methodcreator"
         self.keys.answer1 = self.keys.id + "1"
-        self.keys.methodend = "methodend"
+
+    def create_handler(self):
+        super().create_handler()
+        # This is overwritten because methods are fourth-level conversations,
+        # and need to return end, not self.keys.main_menu, so that main menu
+        # menu buttons work if user presses /main.
+        self.handler._map_to_parent = {
+            self.keys.goback: self.keys.methodend,
+            self.keys.end: self.keys.end,
+        }
 
     def ask_type(self, update, context):
         buttons = [

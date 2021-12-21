@@ -4,18 +4,19 @@ from telegram.ext import Updater
 from sqlalchemy.ext.declarative import declarative_base
 from config import db_url, token
 import logging
-import psycopg2
 
-#SQLAlchemy
+
+# SQLAlchemy
 engine = create_engine(db_url, echo=False)
-Session = sessionmaker(bind=engine)
+Session = sessionmaker(bind=engine, autoflush=False)
 Base = declarative_base()
 
-#Telegram
+# Telegram
 updater = Updater(token=token)
 dispatcher = updater.dispatcher
 
-#Logging
+
+# Logging
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
