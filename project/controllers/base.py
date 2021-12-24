@@ -69,8 +69,7 @@ class Conversation:
         self.keys.methodend = "methodend"  # for returning after methodcreation
 
     def add_main_menu_keys(self):
-        """NOTE: All keys here except main_menu have been taken from different nested conversation's id keys.
-        If you change id keys for any reason, you have to change them here MANUALLY."""
+        """All keys here except main_menu have been taken from different nested conversation's id keys."""
 
         self.keys.manager = mainkeys.manager
         self.keys.log = mainkeys.log
@@ -78,6 +77,7 @@ class Conversation:
         self.keys.create = mainkeys.create
         self.keys.edit_timezone = mainkeys.edit_timezone
         self.keys.deletemydata = mainkeys.deletemydata
+        self.keys.feedback = mainkeys.feedback
 
     def create_handler(self):
         """Function to create a conversation handler that includes the basic attributes
@@ -130,6 +130,11 @@ class Conversation:
                 InlineKeyboardButton(
                     "Delete all my data", callback_data=self.keys.deletemydata
                 ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "Send Your Feedback", callback_data=self.keys.feedback
+                )
             ],
         ]
         keyboard = InlineKeyboardMarkup(buttons)

@@ -6,6 +6,7 @@ stats = "stats"
 create = "create"
 edit_timezone = "edit_timezone"
 deletemydata = "delete_my_data"
+feedback = "feedback"
 
 # other start keys
 timezone = "timezone"

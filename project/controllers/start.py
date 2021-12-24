@@ -10,6 +10,7 @@ from controllers.logger import Logger
 from controllers.manager import Manager
 from controllers.deletemydata import DeleteMyData
 from controllers.stats import Stats
+from controllers.feedback import Feedback
 
 habitcreator = HabitCreator()
 timezone = Timezone()
@@ -17,6 +18,7 @@ logger = Logger()
 manager = Manager()
 deletemydata = DeleteMyData()
 stats = Stats()
+feedback = Feedback()
 
 
 class Start(Conversation):
@@ -34,6 +36,7 @@ class Start(Conversation):
                 manager.handler,
                 deletemydata.handler,
                 stats.handler,
+                feedback.handler,
                 CommandHandler("start", self.start),
                 # 👆 so that user can run /start after deleting all.
                 # 👇 so that user can run shortcut commands.
@@ -43,6 +46,7 @@ class Start(Conversation):
                 CommandHandler(manager.keys.id, manager.handler),
                 CommandHandler(deletemydata.keys.id, deletemydata.handler),
                 CommandHandler(stats.keys.id, stats.handler),
+                CommandHandler(feedback.keys.id, feedback.handler),
             ],
             self.keys.ask_timezone: [
                 CallbackQueryHandler(self.ask_timezone, pattern=self.keys.ask_timezone),
