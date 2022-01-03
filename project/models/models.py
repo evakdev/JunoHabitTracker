@@ -9,8 +9,8 @@ import datetime
 from base import Session
 from sqlalchemy_utils.types.choice import ChoiceType
 from abc import ABC
-from datetime import timedelta, date
-
+from datetime import timedelta
+from base import logger
 from base import Session
 
 
@@ -84,9 +84,8 @@ class Habit(Base):
         with Session() as s:
             method = s.query(Method).filter_by(id=self.method).one_or_none()
             calculator = method.calculator(
-                records=self.records,
-                start_date=self.date_created,
                 today_date=today_date,
+                records=self.records,
                 interval=method.interval,
                 duration=method.duration,
                 count=method.count,
@@ -105,6 +104,20 @@ class Habit(Base):
         return self.records.count()
 
     @property
+    def done_this_week(self):
+        today = self.today_in_timezone()
+        week_start = today - timedelta(days=today.isoweekday() - 1)
+        count = self.records.filter(Record.date >= week_start).count()
+        return count
+
+    @property
+    def done_this_month(self):
+        today = self.today_in_timezone()
+        month_start = today.replace(day=1)
+        count = self.records.filter(Record.date >= month_start).count()
+        return count
+
+    @property
     def has_logs(self):
         return self.total_done_days > 0
 
@@ -113,12 +126,6 @@ class Habit(Base):
         if self.has_logs:
             calculator = self.get_method_calculator()
             return calculator.streak()
-        return 0
-
-    @property
-    def total_loggable_days(self):
-        if self.has_logs:
-            return self.get_method_calculator().total_loggable_days()
         return 0
 
 
@@ -146,9 +153,9 @@ class Method(Base):
         ("count", "Count"),
     ]
     DURATIONS = [
-        ("week", "Week"),
-        ("month", "Month"),
-        ("year", "Year"),
+        ("day", "day"),
+        ("week", "week"),
+        ("month", "month"),
     ]
 
     __tablename__ = "methods"
@@ -163,7 +170,7 @@ class Method(Base):
     def __init__(self, type, duration, *args, **kwargs):
         """
         types: specified, interval, count
-        durations: week, month, year
+        durations: day, week, month
         for type interval: add interval kw
         for type specified: add specified
         for type count: add count
@@ -202,9 +209,9 @@ class Method(Base):
 
 
 # Durations
+day = "day"
 week = "week"
 month = "month"
-year = "year"
 
 
 class MethodCalculator(ABC):
@@ -212,7 +219,7 @@ class MethodCalculator(ABC):
         self._streak = 0
         self.today = today_date
         self.records = records
-        self.first_done_day = records.all()[-1].date
+        self.oldest_done_date = records[-1].date
         self.duration_start = None
         self.duration_end = None
 
@@ -222,19 +229,16 @@ class MethodCalculator(ABC):
     def reminder(self):
         pass
 
-    def is_first_duration(self):
-        return self.duration_start < self.first_done_day
-
-    def dones_in_duration(self):
-        return self.records.filter(
-            self.duration_start <= Record.date, Record.date < self.duration_end
-        )
+    def is_oldest_duration(self):
+        "Returns True if current duration has the oldest dates in records."
+        logger.warning(self.oldest_done_date)
+        return self.duration_start <= self.oldest_done_date
 
     def go_back_a_duration(self):
-        self.duration_end = self.duration_start
+        self.duration_end = self.duration_start - timedelta(days=1)
 
         if self.duration == week:
-            self.duration_start -= timedelta(days=7)
+            self.duration_start -= timedelta(days=6)
 
         elif self.duration == month:
             if self.duration_start.month == 1:
@@ -245,46 +249,56 @@ class MethodCalculator(ABC):
                 self.duration_start = self.duration_start.replace(
                     month=self.duration_start.month - 1
                 )
-        if self.is_first_duration():
-            self.duration_start = self.first_done_day
+        if self.is_oldest_duration():
+            self.duration_start = self.oldest_done_date
 
     def set_duration_start_end(self):
+        """Sets today as last day of duration, and start of week/month as the first day."""
+        self.duration_end = self.today
 
         if self.duration == week:
-            self.duration_start = self.today - timedelta(days=self.today.isoweekday())
+            self.duration_start = self.duration_end - timedelta(
+                days=self.today.isoweekday() - 1
+            )
         elif self.duration == month:
             self.duration_start = self.today.replace(day=1)
 
-        self.duration_end = self.today + timedelta(days=1)
+        else:
+            raise TypeError(
+                f"duration is wrong. it is {self.duration}, type: {type(self.duration)}"
+            )
 
 
 class IntervalCalculator(MethodCalculator):
     def __init__(self, records, today_date, *args, **kwargs):
         self.interval = kwargs.get("interval")
         self.duration = kwargs.get("duration")
+        self.done_dates = [record.date for record in records.all()]
         super().__init__(records, today_date)
 
+    def check_date_and_go_one_interval_back(self, date):
+        if date in self.done_dates:
+            self._streak += 1
+            self.check_date_and_go_one_interval_back(
+                date - timedelta(days=self.interval)
+            )
+        return
+
     def streak(self):
-        records = self.records.all()
-        last_date = records[0].date
-        if self.streak_is_broken(last_date):
-            return 0
-
-        for record in records:
-            if record.date - last_date <= timedelta(days=self.interval):
+        # Not having a log for today doesn't break the streak. We hope they will log today.
+        # So if interval = 1 (everyday), and has a log yesterday, streak will be 1.
+        for i in range(self.interval + 1):
+            date = self.today - timedelta(days=i)
+            if date in self.done_dates:
                 self._streak += 1
-                last_date = record.date
-            else:
-                break
-        return self._streak
-
-    def streak_is_broken(self, last_date):
-        print(f"{last_date=},{self.interval}")
-        if self.today - last_date > timedelta(days=self.interval):
-            return True
+                self.check_date_and_go_one_interval_back(
+                    date - timedelta(days=self.interval)
+                )
+                return self._streak
+        return 0
 
     def total_loggable_days(self):
-        days_passed = (self.today - self.first_done_day + timedelta(1)).days
+        days_passed = (self.today - self.oldest_done_date + timedelta(1)).days
         if days_passed < self.interval:
             return 1
         loggable_days = math.ceil(days_passed / self.interval)
@@ -297,29 +311,58 @@ class CountCalculator(MethodCalculator):
         self.duration = kwargs.get("duration")
         super().__init__(records, today_date)
 
-    def streak(self):
+    def dones_in_duration(self):
+        """Number of done records in the currently checked duration."""
+        return self.records.filter(
+            self.duration_start <= Record.date, Record.date < self.duration_end
+        ).count()
 
+    def streak(self):
+        """Considerations:
+        current week/month does NOT break the streak. if it exceeds goal, it adds to streak. but it never breaks it.
+        If first week/month's days are less than the goal, it will still add to streak as long as the number of its days
+        match the number of records for that week/month.
+        """
         self.set_duration_start_end()
-        self._streak += self.dones_in_duration().count()
+        logger.warning(f"duration start:{self.duration_start} end: {self.duration_end}")
+        if self.dones_in_duration() >= self.count:
+            logger.warning("dones>=count")
+            self._streak += 1
+        if self.is_oldest_duration():
+            logger.warning("is oldest duration")
+            return self._streak
 
         while True:
             self.go_back_a_duration()
-            done_count = self.dones_in_duration().count()
-
-            if self.is_first_duration():
-                if self.duration_days_less_than_count():
-                    return self._streak
-                self._streak += done_count
-                continue
-            elif done_count < self.count:
+            logger.warning(
+                f"go back a duration. duration start:{self.duration_start} end: {self.duration_end}"
+            )
+            if self.is_oldest_duration():
+                self._streak += self.oldest_duration_streak()
                 return self._streak
-            self._streak += done_count
+
+            if self.dones_in_duration() >= self.count:
+                self._streak += 1
+
+            else:
+                return self._streak
+
+    def oldest_duration_streak(self):
+        temp_count = (
+            self.days_in_duration()
+            if self.duration_days_equal_or_more_than_count()
+            else self.count
+        )
+        if self.dones_in_duration() >= temp_count:
+            return 1
+        return 0
 
     def days_in_duration(self):
+        """Number of available days in currently checked duration."""
         return int((self.duration_end - self.duration_start).days)
 
-    def duration_days_less_than_count(self):
-        return self.days_in_duration() < self.count
+    def duration_days_equal_or_more_than_count(self):
+        return self.days_in_duration() >= self.count
 
     def total_loggable_days(self):
         loggable_days = 0
@@ -328,13 +371,13 @@ class CountCalculator(MethodCalculator):
             loggable_days += self.days_in_duration()
         else:
             loggable_days += self.count
-        if self.first_done_day >= self.duration_start:
+        if self.oldest_done_date >= self.duration_start:
             return loggable_days
 
         while True:
             self.go_back_a_duration()
-            if self.is_first_duration():
-                self.duration_start = self.first_done_day
+            if self.is_oldest_duration():
+                self.duration_start = self.oldest_done_date
                 if self.duration_days_less_than_count():
                     loggable_days += self.days_in_duration()
                 else:
@@ -350,32 +393,65 @@ class SpecifiedCalculator(MethodCalculator):
         self.duration = kwargs.get("duration")
         super().__init__(records, today_date)
 
-    def streak(self):
-        self.set_duration_start_end()
-        while True:
-            self.set_duration_dates()
-            done = self.records.filter(Record.date in self.duration_dates)
-            done_count = done.count()
-            if done_count != len(self.days) or self.is_first_duration():
-                self._streak += self.one_duration_streak()
-                return self._streak
-            else:
-                self._streak += done_count
-                self.go_back_a_duration()
+    def done_dates_in_duration(self):
+        records = self.records.filter(
+            self.duration_start <= Record.date, Record.date < self.duration_end
+        )
+        return [record.date for record in records]
 
-    def set_duration_dates(self):
-        self.duration_dates = [
+    def streak(self):
+        """Considerations:
+        current week/month does NOT break the streak. if it exceeds goal, it adds to streak. but it never breaks it.
+        If some of first week/month's specific days came before user started, they will be ignored. it the rest of
+        the days are logged as done, user recieves the streak for that duration.
+        """
+        self.set_duration_start_end()
+        if max(self.days) < self.today:
+            # if its even possible to get a streak from current month yet.
+            self.set_goal_dates()
+            self._streak += self.one_duration_streak()
+        if self.is_oldest_duration():
+            return self._streak
+
+        while True:
+            self.go_back_a_duration()
+            if self.is_oldest_duration():
+                self._streak += self.oldest_duration_streak()
+                return self._streak
+            duration_streak = self.one_duration_streak()
+            if duration_streak == 0:
+                return self._streak
+            self._streak += 1
+
+    def set_goal_dates(self):
+        """Converts specified days to date objects in current week/month."""
+        self.goal_dates = [
             self.duration_start + timedelta(day - 1) for day in self.days
         ]
 
-    def one_duration_streak(self, done_records):
-        duration_streak = 0
-        for day in self.duration_dates:
-            day_record = done_records.filter(Record.date == day).one_or_none()
-            if not day_record:
-                return duration_streak
-            duration_streak += 1
-        return duration_streak
+    def one_duration_streak(self):
+        """Checks a single duration to see if it can add to streak. returns 0 or 1"""
+        done_dates = self.done_dates_in_duration()
+        for day in self.goal_dates:
+            if day not in done_dates:
+                return 0
+        return 1
+
+    def oldest_duration_streak(self):
+        """If a goal date was smaller than the oldest record available, it will be ignored.
+        If all goal dates >= oldest record are marked as done, this duration will get a streak.
+        Otherwise, will return zero."""
+        done_dates = self.done_dates_in_duration()
+        num_goal_dates_logged = 0  # to make sure at least one goal day is done.
+        for day in self.goal_dates():
+            if day >= self.duration_start:
+                if day in done_dates:
+                    num_goal_dates_logged += 1
+                else:
+                    return 0
+        if num_goal_dates_logged:
+            return 1
+        return 0
 
     def total_loggable_days(self):
         loggable_days = 0
@@ -396,7 +472,7 @@ class SpecifiedCalculator(MethodCalculator):
             for day in normal_days:
                 if self.duration_start.day <= day <= self.duration_end.day:
                     loggable_days += 1
-            if self.is_first_duration():
+            if self.is_oldest_duration():
                 break
             self.go_back_a_duration()
         return loggable_days
@@ -407,7 +483,7 @@ class SpecifiedCalculator(MethodCalculator):
             for day in self.days:
                 if self.duration_start.weekday() <= day <= self.duration_end.weekday():
                     loggable_days += 1
-            if self.is_first_duration():
+            if self.is_oldest_duration():
                 break
             self.go_back_a_duration()
         return loggable_days
@@ -440,7 +516,7 @@ class SpecifiedCalculator(MethodCalculator):
                 if self.date_is_valid(y, m, d):
                     if day >= self.duration_start.day and day <= self.duration_end.day:
                         loggable_days += 1
-            if self.is_first_duration():
+            if self.is_oldest_duration():
                 break
             self.go_back_a_duration()
 

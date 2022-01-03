@@ -5,6 +5,7 @@ from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
 from controllers.base import Conversation
 from controllers.mixins import ChooseHabitMixin
 from controllers.mainkeys import stats
+from controllers.crud import get_method
 
 
 class Stats(ChooseHabitMixin, Conversation):
@@ -51,24 +52,43 @@ class Stats(ChooseHabitMixin, Conversation):
         update.callback_query.edit_message_text(text, reply_markup=keyboard)
         return self.keys.redo
 
+    def num_with_unit(self, num, unit):
+        if num == 1:
+            return f"{num} {unit}"
+        return f"{num} {unit}s"
+
     def prepare_stats(self, update, context):
-        streak = self.habit.streak
-        total_done_days = self.habit.total_done_days
-        total_loggable_days = self.habit.total_loggable_days
-        percentage_of_success = (total_done_days / total_loggable_days) * 100
+        streak_unit = get_method(self.habit.method).duration
 
         text = (
             f"<b> 📊 {self.habit.name}</b>\n"
             "\n"
-            f"✅ Current Streak: <b>{streak}</b>\n"
-            f"✅ Since you started, you've done this habit for <b>{total_done_days} </b> of your {total_loggable_days} chosen days.\n"
-            f"✅ Your success percentage is <b>{round(percentage_of_success,ndigits=2)}%</b>!\n"
+            f"<b>✅ Current Streak: {self.num_with_unit(self.habit.streak,streak_unit)}</b>\n"
             "\n"
-            "<em> Note: Your start date is the first day you logged for this habit.</em>"
+            "<b>✅ Done Days:</b>\n"
+            f"<em>     - This week: {self.num_with_unit(self.habit.done_this_week,'day')}</em>\n"
+            f"<em>     - This month: {self.num_with_unit(self.habit.done_this_month,'day')}</em>\n"
+            f"<em>     - Total: {self.num_with_unit(self.habit.total_done_days,'day')}</em>\n"
+            "\n"
+            f"<b>✅ Success Percentage: %</b>!\n"
+            "\n"
+            "<em>Notes:\n"
+            "For now, I only work with Gregorian calendar, and assume week start day is Monday.</em>"
         )
 
+        if streak_unit != "day":
+            notes = (
+                "<em> Notes:\n"
+                "If the first week/month did not have enough days for you to be able to reach your goal, "
+                "then it will still be counted in your streak. But only if you reach the percentage of goal that "
+                "was possible to do. e.g. Say you started on friday and had a goal of 4 times a week. you logged for"
+                "Fri,Sat, and Sun. it's not 4 days, but it counts as streak because you did all that was possible to do."
+            )
+
         keyboard = InlineKeyboardMarkup([self.main_menu_button])
+        print("here")
         update.callback_query.edit_message_text(
             text, reply_markup=keyboard, parse_mode="HTML"
         )
+        print("or here?")
         return self.keys.main_menu
