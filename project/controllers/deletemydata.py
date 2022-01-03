@@ -1,3 +1,4 @@
+import telegram
 from telegram.ext.callbackqueryhandler import CallbackQueryHandler
 from telegram.ext.commandhandler import CommandHandler
 from telegram.inline.inlinekeyboardbutton import InlineKeyboardButton
@@ -52,7 +53,7 @@ class DeleteMyData(Conversation):
             self.main_menu_button,
         ]
         keyboard = InlineKeyboardMarkup(buttons)
-
+        
         send_message(update, text, reply_markup=keyboard, parse_mode="HTML")
         return self.keys.answer1
 
@@ -60,7 +61,7 @@ class DeleteMyData(Conversation):
         user = get_user(get_from_user(update).id)
         user_habits = user.get_habits()
         for habit in user_habits:
-            delete_habit(habit, delete_records=True, delete_method=True)
+            delete_habit(habit, delete_records=True)
         delete_user(user.id)
         return self.say_goodbye(update, context)
 

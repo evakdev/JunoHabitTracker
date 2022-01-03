@@ -62,7 +62,7 @@ class Everyday(MethodConversation):
     def add_to_dict(self, update, context):
         method_dict = {
             "type": "interval",
-            "duration": "month",
+            "duration": "day",
             "interval": 1,
         }
         context.user_data["method"] = method_dict
@@ -94,7 +94,7 @@ class Interval(MethodConversation):
     def add_to_dict(self, update, context):
         method_dict = {
             "type": self.keys.id,
-            "duration": "month",
+            "duration": "day",
         }
         context.user_data["method"] = method_dict
         return self.ask_interval(update, context)
@@ -189,11 +189,15 @@ class Count(MethodConversation):
         return self.wrong_count(update, context)
 
     def wrong_count(self, update, context):
-        text = f"Please enter a valid number between 1 and {7 if self.duration==self.keys.week else 30}."
+        text = f"Please enter a valid number between 1 and {7 if self.duration==self.keys.week else 28}."
+        if self.count_is_over_28:
+            text += "\nI can't track monthly for more than 28 days, because it will mess up your streak at odd months. Maybe you could use the <em>everyday</em> method instead?"
+
         update.message.reply_text(text)
         return self.keys.answer2
 
     def count_is_valid(self, count):
+        self.count_is_over_28 = False
         if count == "" or count == "0":
             return False
         try:
@@ -204,7 +208,10 @@ class Count(MethodConversation):
         if self.duration == self.keys.week:
             return count <= 7
         if self.duration == self.keys.month:
-            return count <= 30  # What if a month is 28,29, or 31 days?
+            if count > 28:
+                self.count_is_over_28 = True
+                return count <= 28
+            # 28 to avoid butchering streaks in odd months with 29,30,31 days.
 
 
 class Specified(MethodConversation):
@@ -314,6 +321,7 @@ class Specified(MethodConversation):
                 ]
                 for i in range(0, 26, 5)
             ]
+            self.buttons[-1] = self.buttons[-1][:3]
             self.buttons.append([done_button])
 
     def is_checked(self, button):

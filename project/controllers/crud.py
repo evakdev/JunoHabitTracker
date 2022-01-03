@@ -149,6 +149,7 @@ def delete_habit(habit, delete_records=True, delete_method=True):
         method_id = habit.method
         habit = s.query(Habit).filter_by(id=habit.id).one_or_none()
         s.delete(habit)
+        s.commit()
 
         if delete_method:
             method = s.query(Method).filter_by(id=method_id)

@@ -89,7 +89,7 @@ class Manager(ChooseHabitMixin, Conversation):
         return self.keys.answer2
 
     def get_rename(self, update, context):
-        self.new_name = "".join(update.message.text).capitalize()
+        self.new_name = update.message.text
         if self.habit_exists(self.new_name):
             return self.duplicate_habit(update, context)
         old_name = self.habit.name
