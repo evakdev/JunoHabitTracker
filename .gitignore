@@ -2,8 +2,10 @@
 /**/__pycache__/
 /.vscode/
 /venv/
+/archived/
 *.code-workspace
 config.py
 *.sqlite3
 *.db
 todo
+.coverage
