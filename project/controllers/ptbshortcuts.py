@@ -1,6 +1,3 @@
-from telegram import replymarkup
-
-
 def send_message(update, text, reply_markup=None, parse_mode=None):
     """
     Sends a message to the user.
