@@ -5,15 +5,6 @@ from base import Session
 from models.models import Habit, Record, Method, User
 from unittest import TestCase
 import unittest
-from sqlalchemy import or_
-
-"""
-Test Situations for Count Method:
-
-duration has more records than count
-duration has equal records to count
-
-"""
 
 
 class TestCountStreakBase(TestCase):
@@ -45,7 +36,7 @@ class TestCountStreakBase(TestCase):
             s.commit()
 
 
-class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
+class TestThreeDurationsOldestFull(TestCountStreakBase):
     def setUp(self) -> None:
         self.user_id = 1
         self.today = datetime.date(2021, 12, 30)
@@ -96,6 +87,7 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                     Record.date == self.records_current[2].date,
                 ),
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
 
@@ -105,6 +97,7 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                 Record.user == self.user_id,
                 Record.date == self.records_oldest[2].date,
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 2)
 
@@ -117,6 +110,7 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                     Record.date == self.records_middle[2].date,
                 ),
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 1)
 
@@ -126,6 +120,7 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                 Record.user == self.user_id,
                 Record.date == self.records_middle[2].date,
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 1)
 
@@ -136,6 +131,7 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                 Record.date > self.records_oldest[-1].date,
                 Record.date < self.records_current[0].date,
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 1)
 
@@ -148,6 +144,7 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                     Record.date == self.records_middle[2].date,
                 ),
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
 
@@ -157,6 +154,7 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                 Record.user == self.user_id,
                 Record.date == self.records_current[2].date,
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 2)
 
@@ -166,6 +164,7 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                 Record.user == self.user_id,
                 Record.date > self.records_middle[-1].date,
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 2)
 
@@ -178,18 +177,43 @@ class TestThreeDurationsOldestFullweekWeek(TestCountStreakBase):
                     Record.date == self.records_oldest[2].date,
                 ),
             ).delete()
+            s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 1)
 
+    def test_oldest_more_than_count_middle_full_current_full(self):
+        with Session() as s:
+            record = Record(self.user_id, self.habit.id, datetime.date(2021, 12, 15))
+            s.add(record)
+            s.commit()
+        calculator = self.get_calculator()
+        self.assertEqual(calculator.streak(), 3)
 
-class TestOldestDurationLessDaysThanCountWeek(TestCountStreakBase):
+    def test_middle_more_than_count_oldest_full_current_full(self):
+        with Session() as s:
+            record = Record(self.user_id, self.habit.id, datetime.date(2021, 12, 23))
+            s.add(record)
+            s.commit()
+        calculator = self.get_calculator()
+        self.assertEqual(calculator.streak(), 3)
+
+    def test_current_more_than_count_oldest_full_middle_full(self):
+        with Session() as s:
+            record = Record(self.user_id, self.habit.id, datetime.date(2021, 12, 31))
+            s.add(record)
+            s.commit()
+        self.today = datetime.date(2021, 12, 31)
+        calculator = self.get_calculator()
+        self.assertEqual(calculator.streak(), 3)
+
+
+class TestOldestDurationLessDaysThanCount(TestCountStreakBase):
     def setUp(self) -> None:
 
         self.user_id = 1
         self.today = datetime.date(2021, 12, 30)
 
         with Session(expire_on_commit=False) as s:
-
             user = User(self.user_id, 0)
             duration = "week"
             method = Method(type="count", duration=duration, count=4)
@@ -233,7 +257,7 @@ class TestOldestDurationLessDaysThanCountWeek(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
 
-    def test_oldest_none_full_current_half(self):
+    def test_oldest_none_current_half(self):
         with Session() as s:
             s.query(Record).filter(
                 Record.user == self.user_id, Record.date < self.record_current_1.date
@@ -267,7 +291,7 @@ class TestOldestDurationLessDaysThanCountWeek(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 2)
 
-    def test_oldest_all_full_current_half(self):
+    def test_oldest_full_current_half(self):
         with Session() as s:
             self.record_current_2 = Record(
                 self.user_id, self.habit.id, datetime.date(2021, 12, 28)
@@ -287,7 +311,7 @@ class TestOldestDurationLessDaysThanCountWeek(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 1)
 
-    def test_oldest_all_full_current_none_full(self):
+    def test_oldest_full_current_none(self):
         with Session() as s:
             s.query(Record).filter(
                 Record.user == self.user_id, Record.date > self.record_oldest_3.date
@@ -297,7 +321,7 @@ class TestOldestDurationLessDaysThanCountWeek(TestCountStreakBase):
         self.assertEqual(calculator.streak(), 1)
 
 
-class TestOldestDurationEqualDaysToCountWeek(TestCountStreakBase):
+class TestOldestDurationEqualDaysToCount(TestCountStreakBase):
     def setUp(self) -> None:
 
         self.user_id = 1
@@ -338,7 +362,7 @@ class TestOldestDurationEqualDaysToCountWeek(TestCountStreakBase):
             s.bulk_save_objects(records)
             s.commit()
 
-    def test_oldest_all_full_current_half(self):
+    def test_oldest_full_current_half(self):
         with Session() as s:
             calculator = self.get_calculator()
             self.assertEqual(calculator.streak(), 1)
@@ -352,7 +376,7 @@ class TestOldestDurationEqualDaysToCountWeek(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
 
-    def test_oldest_none_full_current_half(self):
+    def test_oldest_none_current_half(self):
         with Session() as s:
             s.query(Record).filter(
                 Record.user == self.user_id, Record.date < self.record_current_1.date
@@ -361,7 +385,7 @@ class TestOldestDurationEqualDaysToCountWeek(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
 
-    def test_oldest_all_full_current_all_full(self):
+    def test_oldest_full_current_full(self):
         with Session() as s:
 
             self.record_current_2 = Record(
@@ -383,30 +407,11 @@ class TestOldestDurationEqualDaysToCountWeek(TestCountStreakBase):
             ]
             s.bulk_save_objects(records)
             s.commit()
+
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 2)
 
-    def test_oldest_all_full_current_half(self):
-        with Session() as s:
-            self.record_current_2 = Record(
-                self.user_id, self.habit.id, datetime.date(2021, 12, 28)
-            )
-
-            self.record_current_3 = Record(
-                self.user_id, self.habit.id, datetime.date(2021, 12, 29)
-            )
-
-            records = [
-                self.record_current_2,
-                self.record_current_3,
-            ]
-            s.bulk_save_objects(records)
-            s.commit()
-
-        calculator = self.get_calculator()
-        self.assertEqual(calculator.streak(), 1)
-
-    def test_oldest_all_full_current_none_full(self):
+    def test_oldest_full_current_none(self):
         with Session() as s:
             s.query(Record).filter(
                 Record.user == self.user_id, Record.date > self.record_oldest_4.date
@@ -416,7 +421,7 @@ class TestOldestDurationEqualDaysToCountWeek(TestCountStreakBase):
         self.assertEqual(calculator.streak(), 1)
 
 
-class TestOldestDurationMoreDaysThanCountWeek(TestCountStreakBase):
+class TestOldestDurationMoreDaysThanCount(TestCountStreakBase):
     def setUp(self) -> None:
 
         self.user_id = 1
@@ -457,7 +462,7 @@ class TestOldestDurationMoreDaysThanCountWeek(TestCountStreakBase):
             s.bulk_save_objects(records)
             s.commit()
 
-    def test_oldest_all_full_current_half(self):
+    def test_oldest_full_current_half(self):
         with Session() as s:
             calculator = self.get_calculator()
             self.assertEqual(calculator.streak(), 1)
@@ -471,7 +476,7 @@ class TestOldestDurationMoreDaysThanCountWeek(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
 
-    def test_oldest_none_full_current_half(self):
+    def test_oldest_none_current_half(self):
         with Session() as s:
             s.query(Record).filter(
                 Record.user == self.user_id, Record.date < self.record_current_1.date
@@ -480,7 +485,7 @@ class TestOldestDurationMoreDaysThanCountWeek(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
 
-    def test_oldest_all_full_current_all_full(self):
+    def test_oldest_full_current_full(self):
         with Session() as s:
 
             self.record_current_2 = Record(
@@ -505,27 +510,7 @@ class TestOldestDurationMoreDaysThanCountWeek(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 2)
 
-    def test_oldest_all_full_current_half(self):
-        with Session() as s:
-            self.record_current_2 = Record(
-                self.user_id, self.habit.id, datetime.date(2021, 12, 28)
-            )
-
-            self.record_current_3 = Record(
-                self.user_id, self.habit.id, datetime.date(2021, 12, 29)
-            )
-
-            records = [
-                self.record_current_2,
-                self.record_current_3,
-            ]
-            s.bulk_save_objects(records)
-            s.commit()
-
-        calculator = self.get_calculator()
-        self.assertEqual(calculator.streak(), 1)
-
-    def test_oldest_all_full_current_none_full(self):
+    def test_oldest_full_current_none(self):
         with Session() as s:
             s.query(Record).filter(
                 Record.user == self.user_id, Record.date > self.record_oldest_4.date
@@ -535,7 +520,7 @@ class TestOldestDurationMoreDaysThanCountWeek(TestCountStreakBase):
         self.assertEqual(calculator.streak(), 1)
 
 
-class TestCurrentAndBeforeDurationsHaveNoRecords(TestCountStreakBase):
+class TestCurrentAndMiddleDurationsHaveNoRecords(TestCountStreakBase):
     def setUp(self) -> None:
 
         self.user_id = 1
@@ -571,7 +556,7 @@ class TestCurrentAndBeforeDurationsHaveNoRecords(TestCountStreakBase):
             s.bulk_save_objects(records)
             s.commit()
 
-    def test_oldest_all_full(self):
+    def test_oldest_full(self):
         with Session() as s:
             calculator = self.get_calculator()
             self.assertEqual(calculator.streak(), 0)
@@ -613,7 +598,11 @@ class OldestDurationisCurrentDuration(TestCountStreakBase):
             s.bulk_save_objects(records)
             s.commit()
 
-    def test_duration_all_full(self):
+    def test_counts_today(self):
+        calculator = self.get_calculator()
+        self.assertEqual(calculator.streak(), 1)
+
+    def test_duration_full(self):
         with Session() as s:
             calculator = self.get_calculator()
             self.assertEqual(calculator.streak(), 1)
@@ -627,12 +616,59 @@ class OldestDurationisCurrentDuration(TestCountStreakBase):
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
 
-    def test_duration_none_full(self):
+    def test_duration_none(self):
         with Session() as s:
             s.query(Record).filter_by(user=self.user_id).delete()
             s.commit()
         calculator = self.get_calculator()
         self.assertEqual(calculator.streak(), 0)
+
+
+class TestCurrentDurationLessOrEqualDaysThanCount(TestCountStreakBase):
+    def setUp(self) -> None:
+        self.user_id = 1
+        self.today = datetime.date(2021, 12, 30)
+        with Session(expire_on_commit=False) as s:
+            user = User(self.user_id, 0)
+            duration = "week"
+            method = Method(type="count", duration=duration, count=4)
+            s.add_all([user, method])
+            s.commit()
+            self.habit = Habit("count_habit_week_4days", user.id, method.id)
+            s.add(self.habit)
+            s.commit()
+
+            self.records_oldest = [
+                Record(user.id, self.habit.id, datetime.date(2021, 12, 20)),
+                Record(user.id, self.habit.id, datetime.date(2021, 12, 22)),
+                Record(user.id, self.habit.id, datetime.date(2021, 12, 24)),
+                Record(user.id, self.habit.id, datetime.date(2021, 12, 25)),
+            ]
+            self.records_current = [
+                Record(user.id, self.habit.id, datetime.date(2021, 12, 27)),
+                Record(user.id, self.habit.id, datetime.date(2021, 12, 29)),
+                Record(user.id, self.habit.id, datetime.date(2021, 12, 30)),
+            ]
+
+            s.bulk_save_objects(self.records_oldest + self.records_current)
+            s.commit()
+
+    def test_current_equal_days_to_count_but_half_full_oldest_full(self):
+        calculator = self.get_calculator()
+        self.assertEqual(calculator.streak(), 1)
+
+    def test_current_equal_days_to_count_current_full_oldest_full(self):
+        calculator = self.get_calculator()
+        self.assertEqual(calculator.streak(), 2)
+
+    def test_current_less_days_than_count_half_full_oldest_full(self):
+        with Session() as s:
+            s.query(Record).filter_by(
+                user=self.user_id, date=self.records_current[-1]
+            ).delete()
+            self.today = datetime.date(2021, 12, 29)
+        calculator = self.get_calculator()
+        self.assertEqual(calculator.streak(), 1)
 
 
 if __name__ == "__main__":
