@@ -1,8 +1,5 @@
-import datetime
-
-from sqlalchemy.sql.expression import or_
 from base import Session
-from models.models import Habit, Record, Method, User
+from models.models import Method
 from unittest import TestCase
 import unittest
 
@@ -37,3 +34,7 @@ class TestSpecified(TestCase):
             method = s.query(Method).filter_by(id=self.method_id)
             method.delete()
             s.commit()
+
+
+if __name__ == "__main__":
+    unittest.main()
