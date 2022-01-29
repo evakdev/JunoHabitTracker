@@ -2,11 +2,6 @@ import base
 from controllers.start import Start
 from controllers.errorhandler import error_handler
 
-start_menu = Start()
-
-base.dispatcher.add_handler(start_menu.handler)
-base.dispatcher.add_error_handler(error_handler)
-
 
 def recreate_database():
 
@@ -18,6 +13,16 @@ def recreate_database():
         print(f"     {table}")
 
 
-# recreate_database()
-base.updater.start_polling()
-base.updater.idle()
+def main():
+    start_menu = Start()
+
+    base.dispatcher.add_handler(start_menu.handler)
+    base.dispatcher.add_error_handler(error_handler)
+
+    # recreate_database()
+    base.updater.start_polling()
+    base.updater.idle()
+
+
+if __name__ == "__main__":
+    main()
