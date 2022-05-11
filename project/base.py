@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from telegram.ext import Updater
 from sqlalchemy.ext.declarative import declarative_base
-from config import db_url, token
+
 import logging
 
 
