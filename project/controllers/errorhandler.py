@@ -5,7 +5,7 @@ import traceback
 from telegram import Update
 from telegram.ext import CallbackContext
 from base import logger
-from config import error_channel_id
+
 
 
 def error_handler(update: object, context: CallbackContext) -> None:

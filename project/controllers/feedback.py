@@ -7,7 +7,7 @@ from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 from controllers.base import Conversation
 from controllers.ptbshortcuts import send_message, get_from_user
 from controllers import mainkeys
-from config import feedback_channel_id
+
 import textwrap
 
 
