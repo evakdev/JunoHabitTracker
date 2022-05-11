@@ -4,7 +4,7 @@ from telegram.ext import Updater
 from sqlalchemy.ext.declarative import declarative_base
 import os
 import logging
-
+import pymysql
 
 # SQLAlchemy
 engine = create_engine(os.environ["db_url"], echo=False)
