@@ -3,7 +3,7 @@ from telegram.ext.commandhandler import CommandHandler
 from telegram.ext.filters import Filters
 from telegram.ext.messagehandler import MessageHandler
 from telegram.inline.inlinekeyboardmarkup import InlineKeyboardMarkup
-from process.env import feedback_channel_id
+import os
 from controllers.base import Conversation
 from controllers.ptbshortcuts import send_message, get_from_user
 from controllers import mainkeys
@@ -63,7 +63,7 @@ class Feedback(Conversation):
 
         for message in messages:
             context.bot.send_message(
-                chat_id=feedback_channel_id, text=message, parse_mode="HTML"
+                chat_id=os.environ['feedback_channel_id'], text=message, parse_mode="HTML"
             )
         return self.say_thanks(update, context)
 

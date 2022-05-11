@@ -1,7 +1,7 @@
 import html
 import json
 import traceback
-from process.env import error_channel_id
+import os
 from telegram import Update
 from telegram.ext import CallbackContext
 from base import logger
@@ -36,5 +36,5 @@ def error_handler(update: object, context: CallbackContext) -> None:
     # Send the message.
     # Finally, send the message
     context.bot.send_message(
-        chat_id=error_channel_id, text=message, parse_mode="HTML"
+        chat_id=os.environ["error_channel_id"], text=message, parse_mode="HTML"
     )

@@ -2,17 +2,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from telegram.ext import Updater
 from sqlalchemy.ext.declarative import declarative_base
-from process.env import db_url,token
+import os
 import logging
 
 
 # SQLAlchemy
-engine = create_engine(db_url, echo=False)
+engine = create_engine(os.environ["db_url"], echo=False)
 Session = sessionmaker(bind=engine, autoflush=False)
 Base = declarative_base()
 
 # Telegram
-updater = Updater(token=token)
+updater = Updater(token=os.environ["token"])
 dispatcher = updater.dispatcher
 
 
