@@ -5,6 +5,7 @@
 /archived/
 *.code-workspace
 config.py
+config.json
 *.sqlite3
 *.db
 todo
