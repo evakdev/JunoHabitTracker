@@ -7,7 +7,6 @@ from telegram.ext import CallbackContext
 from base import logger
 
 
-
 def error_handler(update: object, context: CallbackContext) -> None:
     """Log the error and send a telegram message to notify the developer."""
     # Log the error before we do anything else, so we can see it even if something breaks.
@@ -35,6 +34,7 @@ def error_handler(update: object, context: CallbackContext) -> None:
         message = message[:4096] + "..."
     # Send the message.
     # Finally, send the message
+
     context.bot.send_message(
         chat_id=os.environ["error_channel_id"], text=message, parse_mode="HTML"
     )

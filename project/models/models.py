@@ -9,7 +9,7 @@ import datetime
 from base import Session
 from sqlalchemy_utils.types.choice import ChoiceType
 from abc import ABC
-from datetime import date, timedelta
+from datetime import timedelta
 from base import logger
 from base import Session
 
@@ -232,12 +232,11 @@ class MethodCalculator(ABC):
         pass
 
     def is_oldest_duration(self):
-        logger.warning(f"{self.oldest_done_date}")
         "Returns True if current duration has the oldest dates in records."
         if self.duration_start <= self.oldest_done_date:
-            logger.warning("is oldest duration")
+            logger.debug("is oldest duration")
         else:
-            logger.warning("is not oldest duration")
+            logger.debug("is not oldest duration")
         return self.duration_start <= self.oldest_done_date
 
     def go_back_a_duration(self):
@@ -259,7 +258,7 @@ class MethodCalculator(ABC):
 
         if self.is_oldest_duration():
             self.duration_start = self.oldest_done_date
-        logger.warning(f"{self.duration_start=},{self.duration_end=}")
+        logger.debug(f"{self.duration_start=},{self.duration_end=}")
 
     def set_duration_start_end(self):
         """Sets today as last day of duration, and start of week/month as the first day."""
@@ -276,7 +275,7 @@ class MethodCalculator(ABC):
             raise TypeError(
                 f"duration is wrong. it is {self.duration}, type: {type(self.duration)}"
             )
-        logger.warning(f"{self.duration_start=},{self.duration_end=}")
+        logger.debug(f"{self.duration_start=},{self.duration_end=}")
 
 
 class IntervalCalculator(MethodCalculator):
@@ -336,17 +335,17 @@ class CountCalculator(MethodCalculator):
         if not self.oldest_done_date:
             return 0
         self.set_duration_start_end()
-        logger.warning(f"duration start:{self.duration_start} end: {self.duration_end}")
+        logger.debug(f"duration start:{self.duration_start} end: {self.duration_end}")
         print(f"{self.dones_in_duration()=}")
         if self.dones_in_duration() >= self.count:
-            logger.warning("dones>=count")
+            logger.debug("dones>=count")
             self._streak += 1
         if self.is_oldest_duration():
             return self._streak
-        logger.warning(f"streak after current duration: {self._streak}")
+        logger.debug(f"streak after current duration: {self._streak}")
         while True:
             self.go_back_a_duration()
-            logger.warning(
+            logger.debug(
                 f"go back a duration. duration start:{self.duration_start} end: {self.duration_end}"
             )
             if self.is_oldest_duration():
@@ -364,17 +363,17 @@ class CountCalculator(MethodCalculator):
         dones = self.dones_in_duration()
         days = self.days_in_duration()
         if days >= self.count:
-            logger.warning("days >= self.count")
+            logger.debug("days >= self.count")
             if dones >= self.count:
-                logger.warning("dones >= self.count")
+                logger.debug("dones >= self.count")
                 streak = 1
         else:
-            logger.warning("days < self.count")
-            logger.warning(f"{days=},{dones=}")
+            logger.debug("days < self.count")
+            logger.debug(f"{days=},{dones=}")
             if dones == days:
-                logger.warning("days = self.count")
+                logger.debug("days = self.count")
                 streak = 1
-        logger.warning(f"oldest duration streak is {streak}")
+        logger.debug(f"oldest duration streak is {streak}")
         return streak
 
     def days_in_duration(self):
@@ -423,10 +422,10 @@ class SpecifiedCalculator(MethodCalculator):
     @property
     def todays_day_num(self):
         if self.duration == week:
-            logger.warning(f"todays_num = {self.today.isoweekday()}")
+            logger.debug(f"todays_num = {self.today.isoweekday()}")
             return self.today.isoweekday()
         elif self.duration == month:
-            logger.warning(f"todays_num = {self.today.day}")
+            logger.debug(f"todays_num = {self.today.day}")
             return self.today.day
 
     def streak(self):
@@ -439,13 +438,13 @@ class SpecifiedCalculator(MethodCalculator):
             return 0
         self.set_duration_start_end()
         if max(self.days) <= self.todays_day_num:
-            logger.warning("max(self.days) <= self.today.isoweekday()")
+            logger.debug("max(self.days) <= self.today.isoweekday()")
             # if its even possible to get a streak using normal methods from current month yet.
             self.set_goal_dates()
             self._streak += self.one_duration_streak()
-            logger.warning(f"streak for current duration is {self._streak}")
+            logger.debug(f"streak for current duration is {self._streak}")
         if self.is_oldest_duration():
-            logger.warning("Current duration is oldest duration")
+            logger.debug("Current duration is oldest duration")
             return self._streak
 
         while True:
@@ -471,20 +470,20 @@ class SpecifiedCalculator(MethodCalculator):
                 month: self.duration_end.replace(day=1),
             }
             first = start_days.get(self.duration, None)
-        logger.warning(f"{first=}")
+        logger.debug(f"{first=}")
         self.goal_dates = [first + timedelta(day - 1) for day in self.days]
-        logger.warning(f"goal dates are {self.goal_dates}")
+        logger.debug(f"goal dates are {self.goal_dates}")
 
     def one_duration_streak(self):
         """Checks a single duration to see if it can add to streak. returns 0 or 1"""
-        logger.warning(f"----Getting one duration streak----")
+        logger.debug(f"----Getting one duration streak----")
         done_dates = self.done_dates_in_duration()
-        logger.warning(f"{done_dates=}")
+        logger.debug(f"{done_dates=}")
         for day in self.goal_dates:
             if day not in done_dates:
-                logger.warning(f"goal date {day} is not in done dates, returning 0")
+                logger.debug(f"goal date {day} is not in done dates, returning 0")
                 return 0
-            logger.warning(f"goal date {day} is in done dates, continuing")
+            logger.debug(f"goal date {day} is in done dates, continuing")
 
         return 1
 
@@ -492,29 +491,29 @@ class SpecifiedCalculator(MethodCalculator):
         """If a goal date was smaller than the oldest record available, it will be ignored.
         If all goal dates >= oldest record are marked as done, this duration will get a streak.
         Otherwise, will return zero."""
-        logger.warning("------OLDEST DURATION STREAK------")
+        logger.debug("------OLDEST DURATION STREAK------")
         done_dates = self.done_dates_in_duration()
-        logger.warning(f"{done_dates=}")
+        logger.debug(f"{done_dates=}")
         num_goal_dates_logged = 0  # to make sure at least one goal day is done.
         for day in self.goal_dates:
-            logger.warning(f"checking goal date {day}")
+            logger.debug(f"checking goal date {day}")
             if day >= self.duration_start:
-                logger.warning(f"goal date >= duration start (oldest record)")
+                logger.debug(f"goal date >= duration start (oldest record)")
                 if day in done_dates:
-                    logger.warning(f"goal date is in done dates. adding 1.")
+                    logger.debug(f"goal date is in done dates. adding 1.")
                     num_goal_dates_logged += 1
                 else:
-                    logger.warning(f"goal date not in done date. returning 0")
+                    logger.debug(f"goal date not in done date. returning 0")
                     return 0
             else:
-                logger.warning(
+                logger.debug(
                     f"goal date smaller than duration start (oldest record). ignored."
                 )
         if num_goal_dates_logged:
-            logger.warning(f"{num_goal_dates_logged=}, returning 1 streak")
+            logger.debug(f"{num_goal_dates_logged=}, returning 1 streak")
             return 1
 
-        logger.warning(f"{num_goal_dates_logged=}, returning 0 streak")
+        logger.debug(f"{num_goal_dates_logged=}, returning 0 streak")
         return 0
 
     def total_loggable_days(self):

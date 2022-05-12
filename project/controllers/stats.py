@@ -70,8 +70,6 @@ class Stats(ChooseHabitMixin, Conversation):
             f"<em>     - This month: {self.num_with_unit(self.habit.done_this_month,'day')}</em>\n"
             f"<em>     - Total: {self.num_with_unit(self.habit.total_done_days,'day')}</em>\n"
             "\n"
-            f"<b>✅ Success Percentage: %</b>!\n"
-            "\n"
             "<em>Notes:\n"
             "For now, I only work with Gregorian calendar, and assume week start day is Monday.</em>"
         )
