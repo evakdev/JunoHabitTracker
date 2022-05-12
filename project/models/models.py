@@ -55,7 +55,7 @@ class User(Base):
 class Habit(Base):
     __tablename__ = "habits"
     id = Column(sqa.Integer, primary_key=True)
-    name = Column(sqa.String)
+    name = Column(sqa.String(300))
     user = Column(sqa.Integer, ForeignKey("users.id"))
     method = Column(sqa.Integer, ForeignKey("methods.id"))
     date_created = Column(sqa.Date)
@@ -163,7 +163,7 @@ class Method(Base):
     type = Column(ChoiceType(TYPES))
     duration = Column(ChoiceType(DURATIONS))
     # comma-separated list of day numbers (either in week, month, or year. in week, monday=1)
-    specified = Column(sqa.String, nullable=True)
+    specified = Column(sqa.String(300), nullable=True)
     interval = Column(sqa.Integer, nullable=True)
     count = Column(sqa.Integer, nullable=True)
 
